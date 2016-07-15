@@ -1,0 +1,19 @@
+Source: chapel-minimal
+Section: devel
+Priority: optional
+Maintainer: Ben Albrecht <balbrecht@cray.com>
+Build-Depends: debhelper (>= 9), python, dh-python
+Standards-Version: 3.9.8
+Homepage: http://chapel.cray.com/
+
+Package: chapel-minimal
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, python:any (<< 2.8), python:any (>= 2.7.5-5~), python:any (>= 2.7~)
+Description: Minimal compiler for the Chapel programming language
+ Minimal compiler without third-party dependencies for Chapel, an emerging
+ programming language designed for productive parallel computing at scale.
+ Chapel's design and implementation have been undertaken with portability in
+ mind, permitting Chapel to run on multicore desktops and laptops, commodity
+ clusters, and the cloud, in addition to the high-end supercomputers for which
+ it was designed. Chapel's design and development are being led by Cray Inc. in
+ collaboration with academia, computing centers, and industry.
