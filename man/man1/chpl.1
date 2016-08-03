@@ -1,0 +1,1069 @@
+.\" Man page generated from reStructuredText.
+.
+.TH CHPL 1 "" "1.13.1" ""
+.SH NAME
+\fBchpl\fP \- Compiler for the Chapel Programming Language
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.\" confchpl.rst
+.
+.SH SYNOPSIS
+.nf
+\fBchpl\fP [\fB\-O\fP] [\fB\-\-no\-checks\fP] [\fB\-\-fast\fP]
+.in +2
+[\fB\-g\fP] [\fB\-\-savec\fP \fIdirectory\fP]
+[\fB\-M\fP \fIdirectory\fP\&...] [\fB\-\-main\-module\fP \fImod\fP]
+[\fB\-o\fP \fIoutfile\fP] [\fIoptions\fP] source\-files...
+
+.in -2
+.fi
+.sp
+.SH DESCRIPTION
+.sp
+The \fBchpl\fP command invokes the Chapel compiler. \fBchpl\fP converts one
+or more Chapel source files into an executable. It does this by
+compiling Chapel code to C99 code and then invoking the target
+platform\(aqs C compiler to create the executable. However, most users will
+not need to be aware of the use of C as an intermediate format during
+compilation.
+.SH SOURCE FILES
+.sp
+Chapel recognizes four source file types: \fB\&.chpl\fP, .c, .h, and .o.
+.sp
+\fBfoo.chpl\fP
+.INDENT 0.0
+.INDENT 3.5
+Chapel sources are compiled by the Chapel compiler into C intermediate
+code, which is then passed to the target compiler to be compiled into
+object code.
+.UNINDENT
+.UNINDENT
+.sp
+\fBfoo.c\fP
+.INDENT 0.0
+.INDENT 3.5
+C source files are passed directly to the target C compiler.
+.UNINDENT
+.UNINDENT
+.sp
+\fBfoo.h\fP
+.INDENT 0.0
+.INDENT 3.5
+C header files are included in the generated C code.
+.UNINDENT
+.UNINDENT
+.sp
+\fBfoo.o\fP
+.INDENT 0.0
+.INDENT 3.5
+Object files are passed directly to the target linker.
+.UNINDENT
+.UNINDENT
+.SH OPTIONS
+.sp
+\fIModule Processing Options\fP
+.sp
+\fB\-\-[no\-]count\-tokens\fP
+.INDENT 0.0
+.INDENT 3.5
+Prints the total number of static lexical tokens in the Chapel code
+files named on the command line.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-main\-module <module>\fP
+.INDENT 0.0
+.INDENT 3.5
+For programs that supply multiple possible entry points (main()
+functions or module initializers that can serve as an entry point), this
+option can be used to specify which module should serve as the starting
+point for program execution.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-M, \-\-module\-dir <\fP\fIdirectory\fP\fB>\fP
+.INDENT 0.0
+.INDENT 3.5
+Add the specified \fIdirectory\fP to the module search path. The module
+search path is used to satisfy module \(aquse\(aq statements. In the current
+implementation, the compiler tries to locate unresolved modules by
+searching for a filename whose name matches that of the module. For
+example, if the user program contains \(aquse foo\(aq and the .\fBchpl\fP
+files listed by the programmer on the compiler\(aqs command line do not
+define a module named \(aqfoo\(aq, the compiler will search for files named
+\(aqfoo.chpl\(aq in the module search path. The complete path that will be
+searched can be displayed using the \fB\-\-print\-search\-dirs\fP flag and is
+composed of (1) the directories containing the .\fBchpl\fP files that
+were specified on the compiler command\-line (in left\-to\-right order),
+(2) all directories specified by \fB\-M\fP flags (in left\-to\-right order),
+(3) all directories specified by the $CHPL_MODULE_PATH environment
+variable (colon\-separated directories), (4) the compiler\(aqs standard
+module search path.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]print\-code\-size\fP
+.INDENT 0.0
+.INDENT 3.5
+Prints out the size of the Chapel code files named on the command line
+in great detail: For each code file, first the code is echoed back to
+the screen, prefixing each line with the number of lexical tokens it
+contains, or *C* if the line only contains comments, or *B* if the
+line is blank. Next, the total number of tokens for the file is printed.
+Then the number of lines is displayed, broken down into code lines,
+comment\-only lines, and blank lines. Then the maximum and average number
+of tokens per line is displayed. Finally, a histogram of the number of
+tokens per line is shown. After this information is printed for each
+file, a grand total of the number of tokens across all the files is
+displayed.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-print\-module\-files\fP
+.INDENT 0.0
+.INDENT 3.5
+Prints the Chapel module source files parsed by the Chapel compiler.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]print\-search\-dirs\fP
+.INDENT 0.0
+.INDENT 3.5
+Print the module search path used to resolve module for further details.
+.UNINDENT
+.UNINDENT
+.sp
+\fIParallelism Control Options\fP
+.sp
+\fB\-\-[no\-]local\fP
+.INDENT 0.0
+.INDENT 3.5
+Compile code for single/[multi\-] \fIlocale\fP execution, changing \fIon
+blocks\fP to normal blocks, evaluating the \fIlocale\fP expression for side
+effects, and optimizing away all remote references in the code. When
+$CHPL_COMM is set to "none", \fB\-\-local\fP is the default; otherwise
+\fB\-\-no\-local\fP is the default.
+.UNINDENT
+.UNINDENT
+.sp
+\fIOptimization Control Options\fP
+.sp
+\fB\-\-baseline\fP
+.INDENT 0.0
+.INDENT 3.5
+Turns off all optimizations in the Chapel compiler and generates naive C
+code with many temporaries.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-cache\-remote\fP
+.INDENT 0.0
+.INDENT 3.5
+Enables the cache for remote data. This cache can improve communication
+performance for some programs by adding aggregation, write behind, and
+read ahead. This cache is not enabled by any other optimization
+\fIoptions\fP such as \fB\-\-fast\fP\&.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-conditional\-dynamic\-dispatch\-limit\fP
+.INDENT 0.0
+.INDENT 3.5
+When greater than zero, this limit controls when the compiler will
+generate code to handle dynamic dispatch with conditional statements. If
+the number of possible method calls is less than or equal to this limit,
+a (possibly nested) conditional statement will be used for dynamic
+dispatch instead of the virtual method table. The default is zero.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]copy\-propagation\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] copy propagation.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]dead\-code\-elimination\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] dead code elimination.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-fast\fP
+.INDENT 0.0
+.INDENT 3.5
+Turns off all runtime checks using \fB\-\-no\-checks\fP, turns on \fB\-O\fP,
+\fB\-\-specialize\fP, and \fB\-\-vectorize\fP\&.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]fast\-followers\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] the fast follower optimization in which fast
+implementations of followers will be invoked for specific leaders.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]ieee\-float\fP
+.INDENT 0.0
+.INDENT 3.5
+Disable [enable] optimizations that may affect IEEE floating point
+conformance. The default is whatever level of optimization/IEEE floating
+point support your C compiler provides at the optimization level
+provided by \(aq\fBchpl\fP\(aq.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]loop\-invariant\-code\-motion\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] the optimization that moves loop invariant code from
+loop runs into the loop\(aqs "pre\-header." By default invariant code is
+moved. This is currently a rather conservative pass in the sense that it
+may not identify all code that is truly invariant.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]ignore\-local\-classes\fP
+.INDENT 0.0
+.INDENT 3.5
+Disable [enable] local classes
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]inline\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] function inlining.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]inline\-iterators\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] iterator inlining. When possible, the compiler
+optimizes the invocation of an iterator in a loop header by inlining the
+iterator\(aqs definition around the loop body.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]live\-analysis\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] live variable analysis, which is currently only used to
+optimize iterators that are not inlined.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]optimize\-loop\-iterators\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] optimizations to aggressively optimize iterators that
+are defined in terms of a single loop. By default this is enabled.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]vectorize\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] generating vectorization hints for target compiler. If
+enabled, hints will always be generated, but the effects will vary based
+on the target compiler.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]optimize\-on\-clauses\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] optimization of on clauses in which qualifying on
+statements may be optimized in the runtime if supported by the
+$CHPL_COMM layer.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-optimize\-on\-clause\-limit\fP
+.INDENT 0.0
+.INDENT 3.5
+Limit on the function call depth to allow for on clause optimization.
+The default value is 20.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]privatization\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] privatization of distributed arrays and domains if the
+distribution supports it.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]remove\-copy\-calls\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] removal of copy calls (including calls to what amounts
+to a copy constructor for records) that ensure Chapel semantics but
+which can often be optimized away.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]remote\-value\-forwarding\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] remote value forwarding of read\-only values to remote
+threads if reading them early does not violate program semantics.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]scalar\-replacement\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] scalar replacement of records and classes for some
+compiler\-generated data structures that support language features such
+as tuples and iterators.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-scalar\-replace\-limit\fP
+.INDENT 0.0
+.INDENT 3.5
+Limit on the size of tuples being replaced during scalar replacement.
+The default value is 8.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]tuple\-copy\-opt\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] the tuple copy optimization in which whole tuple copies
+of homogeneous tuples are replaced with explicit assignment of each
+tuple component.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-tuple\-copy\-limit\fP
+.INDENT 0.0
+.INDENT 3.5
+Limit on the size of tuples considered for the tuple copy optimization.
+The default value is 8.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]use\-noinit\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] ability to skip default initialization through the
+keyword noinit
+.UNINDENT
+.UNINDENT
+.sp
+\fIRun\-time Semantic Check Options\fP
+.sp
+\fB\-\-no\-checks\fP
+.INDENT 0.0
+.INDENT 3.5
+Turns off all of the run\-time checks in this section of the man page.
+Currently, it is typically necessary to use this flag (or \fB\-\-fast\fP,
+which implies \fB\-\-no\-checks\fP) to achieve performance competitive with
+hand\-coded C or Fortran.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]bounds\-checks\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] run\-time bounds checking, e.g. during slicing and array
+indexing.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]formal\-domain\-checks\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] run\-time checks to ensure that an actual array
+argument\(aqs domain matches its formal array argument\(aqs domain in terms of
+(a) describing the same index set and (b) having an equivalent domain
+map (if the formal domain explicitly specifies a domain map).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]local\-checks\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] run\-time checking of the locality of references within
+local blocks.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]nil\-checks\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] run\-time checking for accessing nil object references.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]stack\-checks\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] run\-time checking for stack overflow.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]cast\-checks\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] run\-time checks in safeCast calls for casts that
+wouldn\(aqt preserve the logical value being cast.
+.UNINDENT
+.UNINDENT
+.sp
+\fIC Code Generation Options\fP
+.sp
+\fB\-\-[no\-]codegen\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] generating C code and the binary executable. Disabling
+code generation is useful to reduce compilation time, for example, when
+only Chapel compiler warnings/errors are of interest.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]cpp\-lines\fP
+.INDENT 0.0
+.INDENT 3.5
+Causes the compiler to emit cpp #line directives into the generated code
+in order to help map generated C code back to the Chapel source code
+that it implements. The [no\-] version of this flag turns this feature
+off.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-max\-c\-ident\-len\fP
+.INDENT 0.0
+.INDENT 3.5
+Limits the length of identifiers in the generated code, except when set
+to 0. The default is 0, except when $CHPL_TARGET_COMPILER indicates a
+PGI compiler (pgi or cray\-prgenv\-pgi), in which case the default is
+1020.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]munge\-user\-idents\fP
+.INDENT 0.0
+.INDENT 3.5
+By default, \fBchpl\fP munges all user identifiers in the generated C code
+in order to minimize the chances of conflict with an identifier or
+keyword in C (in the current implementation, this is done by appending
+\(aq_chpl\(aq to the identifier). This flag provides the ability to disable
+this munging. Note that whichever mode, the flag is in, \fBchpl\fP may
+perform additional munging in order to implement Chapel semantics in C,
+or for other reasons.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-savec <dir>\fP
+.INDENT 0.0
+.INDENT 3.5
+Saves the compiler\-generated C code in the specified \fIdirectory\fP,
+creating the \fIdirectory\fP if it does not already exist. This option may
+overwrite existing files in the \fIdirectory\fP\&.
+.UNINDENT
+.UNINDENT
+.sp
+\fIC Code Compilation Options\fP
+.sp
+\fB\-\-ccflags <flags>\fP
+.INDENT 0.0
+.INDENT 3.5
+Add the specified flags to the C compiler command line when compiling
+the generated code. Multiple \fB\-\-ccflags\fP \fIoptions\fP can be provided and
+in that case the combination of the flags will be forwarded to the C
+compiler.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-g, \-\-[no\-]debug\fP
+.INDENT 0.0
+.INDENT 3.5
+Causes the generated C code to be compiled with debugging turned on. If
+you are trying to debug a Chapel program, this flag is virtually
+essential along with the \fB\-\-savec\fP flag. This flag also turns on the
+\fB\-\-cpp\-lines\fP option unless compiling as a developer (for example, via
+\fB\-\-devel\fP).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-dynamic\fP
+.INDENT 0.0
+.INDENT 3.5
+Use dynamic linking when generating the final binary. If neither
+\fB\-\-dynamic\fP or \fB\-\-static\fP are specified, use the backend compiler\(aqs
+default.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-I, \-\-hdr\-search\-path <dir>\fP
+.INDENT 0.0
+.INDENT 3.5
+Add dir to the back\-end C compiler\(aqs search path for header files.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-ldflags <flags>\fP
+.INDENT 0.0
+.INDENT 3.5
+Add the specified flags to the C compiler link line when linking the
+generated code. Multiple \fB\-\-ldflags\fP \fIoptions\fP can be provided and in
+that case the combination of the flags will be forwarded to the C
+compiler.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-l, \-\-lib\-linkage <library>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify a C library to link in on the C compiler command line.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-L, \-\-lib\-search\-path <dir>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify a C library search path on the C compiler command line.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-O, \-\-[no\-]optimize\fP
+.INDENT 0.0
+.INDENT 3.5
+Causes the generated C code to be compiled with [without] optimizations
+turned on. The specific set of flags used by this option is
+platform\-dependent; use the \fB\-\-print\-commands\fP option to view the C
+compiler command used. If you would like additional flags to be used
+with the C compiler command, use the \fB\-\-ccflags\fP option.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]specialize\fP
+.INDENT 0.0
+.INDENT 3.5
+Causes the generated C code to be compiled with flags that specialize
+the executable to the architecture that is defined by
+CHPL_TARGET_ARCH. The effects of this flag will vary based on choice
+of back\-end compiler and the value of CHPL_TARGET_ARCH.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-o, \-\-output <filename>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the name of the compiler\-generated executable (defaults to a.out
+if unspecified).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-static\fP
+.INDENT 0.0
+.INDENT 3.5
+Use static linking when generating the final binary. If neither
+\fB\-\-static\fP or \fB\-\-dynamic\fP are specified, use the backend compiler\(aqs
+default.
+.UNINDENT
+.UNINDENT
+.sp
+\fILLVM Code Generation Options\fP
+.sp
+\fB\-\-[no\-]llvm\fP
+.INDENT 0.0
+.INDENT 3.5
+Use LLVM as the code generation target rather than C. See
+$CHPL_HOME/doc/technotes/llvm.rst for details.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]llvm\-wide\-opt\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] LLVM wide pointer communication optimizations. This
+option requires \fB\-\-llvm\fP and packed wide pointers. Packed wide
+pointers are enabled by setting CHPL_WIDE_POINTERS = node16. You must
+also supply \fB\-\-fast\fP to enable wide pointer optimizations. This flag
+allows existing LLVM optimizations to work with wide pointers \- for
+example, they might be able to hoist a \(aqget\(aq out of a loop. See
+$CHPL_HOME/doc/technotes/llvm.rst for details.
+.UNINDENT
+.UNINDENT
+.sp
+\fICompilation Trace Options\fP
+.sp
+\fB\-\-[no\-]print\-commands\fP
+.INDENT 0.0
+.INDENT 3.5
+Prints the system commands that the compiler executes in order to
+compile the Chapel program.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]print\-passes\fP
+.INDENT 0.0
+.INDENT 3.5
+Prints the compiler passes during compilation and the amount of wall
+clock time required for the pass. After compilation is complete two
+tables are produced that provide more detail of how time is spent in
+each pass (compiling, verifying, and memory management) and the
+percentage of the total time that is attributed to each pass. The first
+table is sorted by pass and the second table is sorted by the time for
+the pass in descending order.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-print\-passes\-file <filename>\fP
+.INDENT 0.0
+.INDENT 3.5
+Saves the compiler passes and the amount of wall clock time required for
+the pass to <filename>. An error is displayed if the file cannot be
+opened but no recovery attempt is made.
+.UNINDENT
+.UNINDENT
+.sp
+\fIMiscellaneous Options\fP
+.sp
+\fB\-\-[no\-]devel\fP
+.INDENT 0.0
+.INDENT 3.5
+Puts the compiler into [out of] developer mode, which takes off some of
+the safety belts, changes default behaviors, and exposes additional
+undocumented command\-line \fIoptions\fP\&. Use at your own risk and direct any
+questions to the Chapel team.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-explain\-call <call>[:<module>][:<line>]\fP
+.INDENT 0.0
+.INDENT 3.5
+Helps explain the function resolution process for the named function by
+printing out the visible and candidate functions. Specifying a module
+name and/or line number can focus the explanation to those calls within
+a specific module or at a particular line number.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-explain\-instantiation <function|type>[:<module>][:<line>]\fP
+.INDENT 0.0
+.INDENT 3.5
+Lists all of the instantiations of a function or type. The location of
+one of possibly many points of instantiation is shown. Specifying a
+module name and/or line number can focus the explanation to those calls
+within a specific module or at a particular line number.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]explain\-verbose\fP
+.INDENT 0.0
+.INDENT 3.5
+In combination with explain\-call or explain\-instantiation, causes the
+compiler to output more debug information related to disambiguation.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-instantiate\-max <max>\fP
+.INDENT 0.0
+.INDENT 3.5
+In order to avoid infinite loops when instantiating generic functions,
+the compiler limits the number of times a single function can be
+instantiated. This flag raises that maximum in the event that a legal
+instantiation is being pruned too aggressively.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]print\-callstack\-on\-error\fP
+.INDENT 0.0
+.INDENT 3.5
+Accompany certain error and warning messages with the Chapel call stack
+that the compiler was working on when it reached the error or warning
+location. This is useful when the underlying cause of the issue is in
+one of the callers.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-s, \-\-set <config param>[=<value>]\fP
+.INDENT 0.0
+.INDENT 3.5
+Overrides the default value of a configuration parameter in the code.
+For boolean configuration variables, the value can be omitted, causing
+the default value to be toggled.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]task\-tracking\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] the Chapel\-implemented task tracking table that
+supports the execution\-time \fB\-b\fP / \fB\-t\fP flags. This option is
+currently only useful when $CHPL_TASKS is set or inferred to \(aqfifo\(aq and
+adds compilation\-time overhead when it will not be used, so is off by
+default.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]warn\-const\-loops\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] warnings for \(aqwhile\(aq loops whose condition is a \(aqconst\(aq
+variable, because such a loop condition is likely unintended. \(aqWhile\(aq
+loops with \(aqparam\(aq conditions do not trigger this warning.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]warn\-special\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] all special compiler warnings issued due to syntax and
+other language changes. Currently, these include
+\-\-[no\-]warn\-domain\-literal and \-\-[no\-]warn\-tuple\-iteration.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]warn\-domain\-literal\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] compiler warnings regarding the potential use of the
+old\-style domain literal syntax (e.g. [1..2, 3..4]). All array literals
+with range elements will result in warnings.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]warn\-tuple\-iteration\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] compiler warnings regarding the potential use of
+old\-style zippering syntax. All uses of tuple iteration will produce
+warnings.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-[no\-]warnings\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] the printing of compiler warnings. Defaults to printing
+warnings.
+.UNINDENT
+.UNINDENT
+.sp
+\fICompiler Configuration Options\fP
+.sp
+\fB\-\-home <path>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the location of the Chapel installation \fIdirectory\fP\&. This flag
+corresponds with and overrides the $CHPL_HOME environment variable.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-atomics <atomics\-impl>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the implementation to use for Chapel\(aqs atomic variables. This
+flag corresponds with and overrides the $CHPL_ATOMICS environment
+variable. (defaults to a best guess based on $CHPL_TARGET_COMPILER,
+$CHPL_TARGET_PLATFORM, and $CHPL_COMM)
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-network\-atomics <network>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the network atomics implementation for all atomic variables.
+This flag corresponds with and overrides the $CHPL_NETWORK_ATOMICS
+environment variable (defaults to best guess based on $CHPL_COMM).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-aux\-filesys <aio\-system>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify runtime support for additional file systems. This flag
+corresponds with and overrides the $CHPL_AUX_FILESYS environment
+variable (defaults to \(aqnone\(aq).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-comm <comm\-impl>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the communication implementation to use for inter\-\fIlocale\fP
+data transfers. This flag corresponds with and overrides the $CHPL_COMM
+environment variable (defaults to \(aqnone\(aq).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-comm\-substrate <conduit>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the communication conduit for the communication implementation.
+This flag corresponds with and overrides the $CHPL_COMM_SUBSTRATE
+environment variable (defaults to best guess based on
+$CHPL_TARGET_PLATFORM).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-gasnet\-segment <segment>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify memory segment to use with GASNet. This flag corresponds with
+and overrides the $CHPL_GASNET_SEGMENT environment variable. (defaults
+to best guess based on $CHPL_COMM_SUBSTRATE).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-gmp <gmp\-version>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the GMP library implementation to be used by the GMP module.
+This flag corresponds with and overrides the $CHPL_GMP environment
+variable (defaults to best guess based on $CHPL_TARGET_PLATFORM and
+whether you\(aqve built the included GMP library in the third\-party
+\fIdirectory\fP).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-hwloc <hwloc\-impl>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify whether or not to use the hwloc library. This flag corresponds
+with and overrides the $CHPL_HWLOC environment variable (defaults to a
+best guess based on whether you\(aqve built the included library in the
+third\-party hwloc \fIdirectory\fP).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-launcher <launcher\-system>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the launcher, if any, used to start job execution. This flag
+corresponds with and overrides the $CHPL_LAUNCHER environment variable
+(defaults to a best guess based on $CHPL_COMM and
+$CHPL_TARGET_PLATFORM).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-locale\-model <locale\-model>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the \fIlocale\fP model to use for describing your \fIlocale\fP
+architecture. This flag corresponds with and overrides the
+$CHPL_LOCALE_MODEL environment variable (defaults to \(aqflat\(aq).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-make <make utility>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the GNU compatible make utility. This flag corresponds with and
+overrides the $CHPL_MAKE environment variable (defaults to a best guess
+based on $CHPL_HOST_PLATFORM).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-mem <mem\-impl>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the memory allocator used for dynamic memory management. This
+flag corresponds with and overrides the $CHPL_MEM environment variable
+(defaults to a best guess based on $CHPL_COMM).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-regexp <regexp>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the regular expression library to use. This flag corresponds
+with and overrides the $CHPL_REGEXP environment variable (defaults to
+\(aqnone\(aq or \(aqre2\(aq if you\(aqve installed the re2 package in the third\-party
+\fIdirectory\fP).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-target\-arch <architecture>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the architecture that the compiled executable will be
+specialized to when \fB\-\-specialize\fP is enabled. This flag corresponds
+with and overrides the $CHPL_TARGET_ARCH environment variable
+(defaults to a best guess based on $CHPL_COMM, $CHPL_TARGET_COMPILER,
+and $CHPL_TARGET_PLATFORM).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-target\-compiler <compiler>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the compiler suite that should be used to build the generated C
+code for a Chapel program and the Chapel runtime. This flag corresponds
+with and overrides the $CHPL_TARGET_COMPILER environment variable
+(defaults to a best guess based on $CHPL_HOST_PLATFORM,
+$CHPL_TARGET_PLATFORM, and $CHPL_HOST_COMPILER).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-target\-platform <platform>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the platform on which the target executable is to be run for the
+purposes of cross\-compiling. This flag corresponds with and overrides
+the $CHPL_TARGET_PLATFORM environment variable (defaults to
+$CHPL_HOST_PLATFORM).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-tasks <task\-impl>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the tasking layer to use for implementing tasks. This flag
+corresponds with and overrides the $CHPL_TASKS environment variable
+(defaults to a best guess based on $CHPL_TARGET_PLATFORM).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-timers <timer\-impl>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify a timer implementation to be used by the Time module. This flag
+corresponds with and overrides the $CHPL_TIMERS environment variable
+(defaults to \(aqgeneric\(aq).
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-wide\-pointers <format>\fP
+.INDENT 0.0
+.INDENT 3.5
+Specify the wide pointer format format. This flag corresponds with and
+overrides the $CHPL_WIDE_POINTERS environment variable (defaults to
+\(aqstruct\(aq).
+.UNINDENT
+.UNINDENT
+.sp
+\fICompiler Information Options\fP
+.sp
+\fB\-\-copyright\fP
+.INDENT 0.0
+.INDENT 3.5
+Print the compiler\(aqs copyright information.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-h, \-\-help\fP
+.INDENT 0.0
+.INDENT 3.5
+Print a list of the command line \fIoptions\fP, indicating the arguments
+that they expect and a brief summary of their purpose.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-help\-env\fP
+.INDENT 0.0
+.INDENT 3.5
+Print the command line option help message, listing the environment
+variable equivalent for each flag (see ENVIRONMENT) and its current
+value.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-help\-settings\fP
+.INDENT 0.0
+.INDENT 3.5
+Print the command line option help message, listing the current setting
+of each option as specified by environment variables and other flags on
+the command line.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-license\fP
+.INDENT 0.0
+.INDENT 3.5
+Print the compiler\(aqs license information.
+.UNINDENT
+.UNINDENT
+.sp
+\fB\-\-version\fP
+.INDENT 0.0
+.INDENT 3.5
+Print the version number of the compiler.
+.UNINDENT
+.UNINDENT
+.SH ENVIRONMENT
+.sp
+Most compiler command\-line \fIoptions\fP have an environment variable that
+can be used to specify a default value. Use the \fB\-\-help\-env\fP option to
+list the environment variable equivalent for each option. Command\-line
+\fIoptions\fP will always override environment variable settings in the
+event of a conflict, except for ccflags and ldflags, which stack.
+.sp
+If the environment variable equivalent is set to empty, it is considered
+unset. This does not apply to \fIoptions\fP expecting a string or a path.
+.sp
+For \fIoptions\fP that can be used with or without the leading \fB\-\-no\fP
+(they are shown with "[no\-]" in the help text), the environment variable
+equivalent, when set to a non\-empty string, has the following effect.
+When the first character of the string is one of:
+.nf
+
+.fi
+.sp
+.INDENT 0.0
+.INDENT 3.5
+Y y T t 1 \- same as passing the option without \-\-no,
+.sp
+N n F f 0 \- same as passing the option with \-\-no,
+.sp
+anything else \- generates an error.
+.UNINDENT
+.UNINDENT
+.sp
+For the other \fIoptions\fP that enable, disable or toggle some feature, any
+non\-empty value of the environment variable equivalent has the same
+effect as passing that option once.
+.SH BUGS
+.sp
+See $CHPL_HOME/STATUS for a list of known bugs and
+$CHPL_HOME/doc/bugs.rst for instructions on reporting bugs.
+.SH SEE ALSO
+.sp
+$CHPL_HOME/QUICKSTART.rst for more information on how to get started with
+Chapel.
+.SH AUTHORS
+.sp
+See $CHPL_HOME/CONTRIBUTORS.md for a list of contributors to Chapel.
+.SH COPYRIGHT
+.sp
+Copyright (c) 2004\-2016 Cray Inc. (See $CHPL_HOME/LICENSE for more
+details.)
+.\" Generated by docutils manpage writer.
+.

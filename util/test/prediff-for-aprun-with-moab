@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#
+# Remove occasional mysterious warning from moab flavor of pbs.
+
+if [ "${1}" != "mandelbrot" ] ; then
+    outfile=$2
+    cat $outfile | grep -v -E '.*/cray-ccm-epilogue: line .*: echo: write error: Broken pipe' > $outfile.tmp
+    mv $outfile.tmp $outfile
+fi
