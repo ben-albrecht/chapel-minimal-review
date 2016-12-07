@@ -1,0 +1,2 @@
+# Variable name can't have an apostrophe in it.
+chapel-minimal binary: spelling-error-in-binary

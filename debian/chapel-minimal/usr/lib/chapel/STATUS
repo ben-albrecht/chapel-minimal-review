@@ -1,0 +1,497 @@
+============================
+Chapel Implementation Status
+============================
+
+This file contains a list of unimplemented features and known bugs in
+the Chapel implementation.  If you find additional bugs and
+unimplemented features, or if you would like to request prioritization
+of items in this file, please let us know at
+chapel-bugs@lists.sourceforge.net or chapel_info@cray.com.  Please
+feel encouraged to err on the side of mailing us with any issues you
+run into.
+
+
+General (see also portability section at the bottom of this file)
+-----------------------------------------------------------------
+
+- Some error messages are confusing or unhelpful.  If needed, please
+  ask us for help with interpreting the message.
+- Compiler and runtime and errors may report incorrect line numbers,
+  may not be formatted correctly, or may be garbled.  If needed,
+  please ask us for help finding the line in question.
+- Errors in unused code may not be reported by the compiler
+- Names in a Chapel program can collide with names used internally.
+- There are several internal memory leaks
+  - Privatized domains and arrays (i.e., those that use the standard
+    distributions) are leaked
+  - Non-default domain maps may be leaked
+  - Data associated with iterators may be leaked
+  - Records with generic fields may be leaked
+- Separate compilation of Chapel files is not supported.
+- Back-end compilers may emit warning messages.
+- The --gdb flag is only supported for single-locale platforms that
+  support gdb.  Please ask us for help if you want to debug a
+  multilocale program.
+
+
+Types, Params, Variables, and Consts
+------------------------------------
+- Enum types always represented using the smallest integer type
+  available, even if the enum values require a larger integer.
+- Enum member initializations cannot depend on previous enum members
+- Compile time integer operations on enum values may result in non-param values
+- Cannot define a method on sized types.
+- Declaring enum types in a function body can cause compile time errors
+- The default value for the locale type is incorrect.
+- Type inferred for a variable initialized to 'nil' is not 'object'
+- Multiple configuration parameters with different types declared in a
+  single statement result in an internal compiler error.
+- When setting a config variable that shares an initializer on the
+  command line, the new value is incorrectly propagated to the other
+  variables.
+- When setting a boolean config variable on the command line, using a
+  space as the delimiter results in an "Unexpected flag" error.
+- When setting an integral config variable on the command line, only
+  base 10 values are supported.
+- Some assignments to ref variables can cause an internal compiler error.
+- Taking a reference of an array formal argument causes a const checking error.
+- Variables that rely on each other for initialization
+  and/or type inference may result in an internal compiler error.
+- Constant checking is incomplete.
+- Attempting to instantiate a generic class in a type alias context results
+  in an unresolved call error.
+- Type aliases and enum declarations cannot be declared private/public.
+- Defining a method on a type alias is not supported.
+
+Conversions
+-----------
+- Implicit conversions of enums to uint not supported.
+- Casts and relational operations involving enum constants may fail to
+  compile or produce incorrect answers.
+- Casts to non-type variables do not result in an error at compile time.
+- Integer to c_string cast promotes from int to real before cast is performed
+- Casting from string to uint(32) clips result to 31 bits on 32 bit platforms
+
+Statements and Expressions
+--------------------------
+- Continue statements in forall and coforall statements not implemented.
+- On statement variable declarations are not yet supported.
+  E.g., on Locales(1) var x: real;
+- The local statement is not well supported.  For example, declaring
+  domains (whether explicitly via a declaration or implicitly via
+  slicing) results in a runtime seg fault or non-local access error.
+  Also, on statements in local blocks should be illegal, but result in
+  local execution.
+- Nested for expressions can cause runtime failure
+- Using domain extraction syntax inside a variable declaration causes
+  compiler failure instead of a clean error
+
+Modules
+-------
+- Modules that rely on each other for initialization and/or type
+  inference may result in an internal compiler error.
+- User modules named the same as types defined internal/standard modules
+  can cause multiple definition errors.
+- Modules that use another module that uses a begin statement in its
+  initialization result in an internal compiler error.
+- Constructor calls with the same name in different modules are not
+  properly resolved.
+- Cannot call new for or declare a variable for a type defined in another
+  module without explicitly using the module.
+- If multiple modules with the same name define 'main' and the '--main-module'
+  flag is used, there is an internal error.
+- Secondary methods are not handled properly within 'only' lists in 'use'
+  statements.
+
+Functions and Iterators
+-----------------------
+- Invalid where clauses may result in an internal compiler error.
+- Querying the type of a function is not supported and currently
+  returns an internal type.
+- Default values for formal arguments do not accept conditional
+  expressions.
+- Specified argument types that are not types should return a Chapel
+  compile time error, but instead they may result in an internal
+  compiler error or compile and run.
+- Formal arguments that depend on preceeding vararg arguments fail to compile
+- Array-of-array formal argument declarations do not work.
+- Arrays returned from a ref function result in memory corruption.
+- Returning arrays from getter/setter functions always uses the setter version
+- Function argument with type tuple of generic class results in a
+  compiler assertion.
+- Actual arguments for formals with out intent do not follow implicit
+  conversion rules and must match exactly in type.
+- Sync and single vars incorrectly passed to generic ref or const intent
+  arguments.
+- Sync and single variables in records are not properly copied out
+  when the record is passed as an out or inout argument.
+- Parentheses-less function without curly braces enclosing the body
+  fail to parse correctly.
+- Recursive functions that return arrays are not yet supported
+- Recursive functions with default argument values may not work.
+- Type and parameter functions are not checked for side effects.
+- Ref functions returning multiple class types should be illegal, but
+  instead they are compiled and result in runtime error.
+- Ref functions that return local data may not result in an error.
+- Ref functions that return fields from a record argument passed by
+  blank intent may produce incorrect results.
+- Blank argument intent should be const ref for records, not make a copy
+- Type functions with unambiguous return paths may result in "illegal
+  cast" errors.
+- Support for closures and first-class functions is not complete.
+- Recursive iterators may not work correctly.
+- Parallel recursive iterators are not supported.
+- Iterators in records cannot change fields in that record.
+- Iterators with reference variables cause program to crash at runtime
+  when compiled with the --baseline flag.
+- Const checking is incorrect for standalone iterator index variables
+- Ref iterators yielding records may introduce uninitialized values
+- Passing unexpected argument to default 'these' iterator causes internal error
+- The ref version of a ref/val function pair is sometimes chosen when the val
+  version would be better.
+- A forall loop with an iteratable expression that does not provide
+  leader/follower iterators cause an internal compiler error.
+- Function return point analysis is conservative.
+- Missing function body at declaration results in an internal compiler
+  error.
+- Function arguments of type 'const ref' should be allowed to have
+  default values.
+- Formal argument intents on 'this' can result in incorrect function resolution
+  or errors.
+
+
+Strings
+-------
+- String assignment across locales is sometimes by reference and
+  sometimes by value.
+- Casting from complex to string mishandles -0.0i
+- Casting a sync type to string results in an internal representation of
+  the type instead of a clean, user-facing representation.
+- Implicit conversion of a param c_string to string does not work.
+- c_string variable are sometimes copied to remote locales.
+- Changes to a string used in a begin statement are not visible from
+  the begin body.
+- Global constant strings are not replicated across locales
+- Unable to resolve return type for casts between an enum type and
+  string if the enum is declared in the function and the string is
+  passed in as a type parameter.
+
+
+Tuples
+------
+- Specifying the type of a tuple of domains or arrays results in a
+  runtime error (nil dereference).  It may be possible to work around
+  this by implicitly specifying the type by using an assignment at the
+  declaration.
+- Invalid use of tuple expansion as an expression results in the
+  expression evaluating to the first element of the tuple.
+- Tuple expanded list enclosed in parenthesis does not result in a
+  tuple.
+- Cannot iterate over heterogeneous tuples
+- Cannot iterate over a tuple of iteratable expressions (e.g.,
+  iterators).
+- Reference tuples do not work.
+- References cannot be members of classes or records.
+
+
+Ranges
+------
+- Range operations can result in overflow.
+    e.g., (0:uint..5 by -1).length
+- Ranges that span the entire representable range of the index type
+  do not work.
+- Range alignment is not always displayed when printing a range using
+  writeln().
+- The indexOrder() method on ranges does not work if the unbounded on
+  the 'low' end.
+- Param ranges are not supported.
+- Range internals (bounds, stride, and alignment) are not checked for
+  overflow when being manipulated.
+
+
+Classes, Records, and Unions
+----------------------------
+- Generic domain types in field declarations result in a compile time
+  error.
+- Generic types in default value for type fields result in a compile time error
+- Record and class members that are defined to be array aliases fail
+  to compile without an explicitly specified element type.
+- Multiple inheritance as defined in the spec (single base class with
+  fields) is not implemented.
+- Records returned from functions are destructed incorrectly.
+- User-defined initializers/constructors and destructors are not robust.
+- Copy constructors are not properly implemented.
+- Generic methods called with param actuals may result in "unresolved
+  call" error at compile time or incorrect generated code.
+- Function resolution may be overly conservative for methods of subclasses.
+- Cannot call a standalone function from a class method of the same name
+- Declaring class members using type aliases may result in unresolved
+  type errors.
+- Ambiguous definitions of class methods that are overridden in a
+  subclass result in an internal compiler error.
+- Classes or records nested in procedures or iterators may result in a
+  compile time error.
+- Non-sync arguments to default initializers/constructors that expect
+  sync vars are not properly coerced to sync type.
+- Assigning to param class members from constructors may fail to compile
+- Implicit casting of record parameters not implemented.
+- Array alias arguments to constructors fail to compile.
+- Atomics are not passed by ref by default
+- Atomic operations don't promote cleanly to whole arrays
+- Using a comparison operator with a record and 'nil' results in an
+  internal compiler error.
+- Records inheritance does not properly expose parent methods.
+- Nested classes and records can result in multiple destructor calls
+- Nested record inheritance results in a compilation error.
+- Nested record constructor should not need an explicit generic outer
+- Nested records as fields in outer classes/records is not robust
+- Unused records defined in procedures result in an internal compiler error.
+- Recursive records result in function resolution error or internal
+  compiler error.
+- Classes arguments passed to out, inout, and ref intent formals
+  result in a compiler internal error.
+- Specifying the type when declaring a record variable with const
+  fields results in a compile time errors regarding assigning to const
+  fields.
+- Default arrays of records with const fields result in compile time
+  errors regarding assigning to const fields.
+- Associative domains and arrays of records with const fields result
+  in compile time errors regarding assigning to const fields.
+- Comparison (== or !=) of records with array or domain fields result
+  in a back-end C compiler error.
+- There's no way to determine which field of a union is "active".
+- Setting union field from constructor doesn't work
+
+
+Domain Maps, Domains and Arrays
+-------------------------------
+- Reference counting (used for memory management of domain maps,
+  domains, and arrays) may contain bugs.
+- The default domain map is currently a single type for all default domains
+- Assignment from a distributed domain to a non-distributed domain causes
+  a runtime error.
+- Assignment to domain maps with declared domains not supported for
+  all domain map types.
+- PrivateDist must be used at the top-level scope.
+- Subset checks on subdomains is not implemented.
+- Bounds checks are not implemented for block-cyclic array slices
+- Bounds checks on index types is not implemented.
+- Concurrent slicing of privatized Replicated arrays dereferences nil
+- Query expressions on domains and subdomains not supported.
+- Arrays of arrays where the inner arrays vary in size are not supported.
+- Array of array procedure arguments may cause compile time errors
+- Array values are permitted to be detupled in an iterator
+- Arrays of subdomains may not work.
+- Indexing of array literals may be mis-parsed.
+- Arrays declared over domains with negative strides may result in errors.
+- Array and domain runtime type information is not preserved through
+  generic instantiation.
+- Modifications to Sparse domains are not thread-safe.
+- Sparse domain/array slicing is not supported.
+- Sparse arrays of arrays can halt when reading values that were not added
+- Associative arrays of arrays can add new array elements by reading
+  empty positions
+- Associative domain/array slicing is not supported.
+- Associative domain clear() does not reset values of arrays declared
+  over the domain.
+- Associative domains with array or domain index types do not work.
+- Associative domain literal syntax with a single domain index in
+  initializer drops the extra {} and becomes the same as the single
+  domain.
+- Associative arrays with associative array element types result in a
+  runtime error.
+
+
+Task Parallelism and Synchronization
+------------------------------------
+- Atomic statements are not implemented.
+- Remove value forwarding does not respect the memory order imposed by
+  atomic variables.
+- Deadlock may occur due to an insufficient number of threads.
+- Arrays may not be moved to the heap due to begin statements or
+  other indirect array element accesses.
+- Sync variables cannot be used in conditional expressions
+- Semantics of sync class types are not clearly defined
+- Default 'const ref' task intent for record does not prevent updates to sync
+  variable field in the record from within task.
+- A 'sync' statement with a 'begin' statement in it at module scope can cause
+  an internal compiler error.
+
+Data Parallelism
+----------------
+- Some data parallel statements that are meant to be parallelized in Chapel
+  are serialized with a warning message "X has been serialized".  For
+  example:
+  1. Scans are always serialized.
+  2. Assignments from ranges to multidimensional arrays are always serialized.
+  3. Parallel iteration over opaque domains and arrays are always serialized.
+- Array promotion/forall/for/scan expressions always evaluate to 1D arrays.
+  E.g., f(A) where A promotes f() should result in an array of type:
+    [A.domain] f(A(i)).type but instead results in a 1D array
+  E.g., [i in D] f(i) should result in an array of type: [D] f(i).type
+    but instead results in a 1D array
+- Parallel zippered iteration does not perform runtime size/shape checks
+- Domain promotion results in a race condition.
+- Arrays and domains of different ranks can be zippered serially.
+- Reductions and scans of arrays of arrays may result in errors.
+- Reduction type definitions nested in classes or records cannot be
+  used directly outside of enclosing class or record's scope.
+- Reductions zippered arrays of mismatched rank result in a compile time error.
+- Cannot not use an instance of a reduction class for a reduction.
+- Whole-domain assignment operations on sparse domains are not all
+  serialized as they should be.
+- Task intents do not work for coforalls and cobegins used in iterators.
+- 'in' and 'const in' forall intents do not work correctly
+- Default forall intent for records results in extra record copies
+- Iterating over a range where bound+stride overflows the index type
+  results in runtime halt
+- Overloaded xor used in a reduction may result in an internal
+  compiler error.
+- Zipping an associative domain with another iterator in a forall loop can
+  result in compile time errors.
+
+
+Standard Modules, Standard Distributions, and Standard Layouts
+--------------------------------------------------------------
+- On some platforms, the Math module is limited by the back-end C compiler.
+- Extended precision math functions are not supported.
+- The BlockCyclic distribution is incomplete.
+- Reindexing stridable Cyclic is not fully supported.
+- Block and Cyclic domains containing indices near the minimum or
+  maximum integral type may overflow.
+- Array assignment fails for Block distributions with bounding boxes
+  that do not overlap with the bounds of the domain.
+- Records with domain map fields do not work.
+
+
+Input and Output
+----------------
+- Input of whole arrays is not implemented.
+  Workaround: use a loop, e.g., for e in A do read(e);
+- Reading of tuple types not supported.
+- Printing of replicated arrays may not work properly.
+- Using 'on' in a writeThis() method can lead to a deadlock.
+- Calling writeln() of function names should be illegal, but currently
+  results in unexpected output, obscure error messages, or internal
+  compiler errors.
+- Reading class fields out of order is not supported
+
+
+Optimizations
+-------------
+- Disabling inlining may cause incorrect code to be generated.
+- Module scope runtime constants are not replicated across locales
+
+
+Miscellaneous
+-------------
+- Nil extern class references not properly handled.
+- Extern functions with array arguments cannot have specified 'void' return type
+- Functions from extern includes that have naming conflicts with
+  internal functions result in a back-end C compiler error.
+- Functions and variables declared with the same name at the same scope result
+  in multiple definition errors
+- Leaving off () when calling exit results in an internal compiler
+  error.
+- Compiler warning mechanism not always type-checked correctly.
+- Compiler warning mechanism can result it lost warning if there are
+  multiple warnings.
+- If the -o argument matches an existing directory name <dir>, the
+  resulting binary is placed in <dir>/<dir>.tmp.
+- The usual scoping rules are not followed perfectly during function
+  and type resolution.
+- Programs requiring non-linear resolution may fail to compile.
+  E.g., mutual module uses that access variables across both modules
+- Creating many domain types or arrays or tuples types causes the
+  compilation time to become unreasonable.
+- Types composed of runtime types are not runtime types.
+- Indexing string literals results in a parse error
+- Getting the locale-id of variable in local-on statement can be incorrect.
+
+Performance
+-----------
+- The body of forall loops over domains with non-default distribution
+  are unnecessarily cloned.
+- Many provably local variables are unnecessarily widen for
+  multilocale execution
+- Task creation for coforall/cobegin statements can be better optimized.
+- Mechanisms for program tear-down can be better optimized.
+
+
+chpldoc
+-------
+- chpldoc comments that are not closed with using the specified
+  comment style are not detected.
+- chpldoc is incorrect or incomplete for some types
+
+
+Developer
+---------
+- chpl__autoCopy() and chpl__initCopy() functions and callees cannot
+  contain begin statements.
+- User defined chpl__initCopy() function are ignored in the
+  removeUnnecessaryAutoCopyCalls pass.
+- The "no copy" and "no auto destroy" pragmas used with variable
+  declarations with specified types result in an internal compiler
+  error.
+
+
+LLVM (experimental)
+-------------------
+
+
+Multi-locale/GASNet executions
+------------------------------
+- stdin does not work for multi-locale/GASNet executions
+
+
+Incremental compilation (experimental)
+--------------------------------------
+- Incremental compilation support is not enabled for LLVM
+- Cannot include C header files that define symbols with
+  incremental compilation enabled
+
+
+Portability
+-----------
+Linux64:
+- On some systems the GMP fac_ui function causes valgrind to issue invalid
+  read errors
+
+Ubuntu:
+- Ubuntu 14.04 32-bit (not 64-bit) has a bug in preadv/pwritev support.
+  This problem may prevent proper functioning for many of Chapel's IO
+  routines. This problem is not present in Ubuntu 12.04 or 14.10 or any
+  64-bit version.  See the bug report here:
+    https://bugs.launchpad.net/ubuntu/+source/eglibc/+bug/1309818
+
+OpenSUSE:
+- If the site-config package is installed, it sets a CONFIG_SITE environment
+  variable which causes some packages in third-party to store their
+  libraries in lib64 (vs lib) on 64-bit platforms. Unsetting CONFIG_SITE will
+  allow Chapel to build in that case.
+
+cygwin:
+- cygwin builds may demonstrate portability issues.
+- The qthreads tasking layer is not supported.
+- Some utf8 characters have incorrect lengths on cygwin
+
+OS/X:
+- For older version (e.g., leopard), the qthreads tasking layer is not
+  supported.
+- Static linking not supported.
+
+PGI compilers:
+- Chapel generated identifier names may be too long.
+
+Intel compilers:
+- Static linking may not work.
+
+IEEE floating-point standard conformance:
+  The --ieee-float flag is implemented by passing appropriate flags to
+  the back-end compiler.  For some compilers, 100% IEEE floating-point
+  conformance is not implemented.  In such cases, the --ieee-float
+  flag will request the most standard conformant floating-point
+  behavior (if such behavior can be identified).
+
+

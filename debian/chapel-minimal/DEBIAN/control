@@ -1,0 +1,17 @@
+Package: chapel-minimal
+Version: 1.14.0-1
+Architecture: amd64
+Maintainer: Ben Albrecht <balbrecht@cray.com>
+Installed-Size: 13863
+Depends: libc6 (>= 2.14), libgcc1 (>= 1:3.0), libstdc++6 (>= 5.2), python:any (<< 2.8), python:any (>= 2.7.5-5~)
+Section: devel
+Priority: optional
+Homepage: http://chapel.cray.com/
+Description: Minimal compiler for the Chapel programming language
+ Minimal compiler without third-party dependencies for Chapel, an emerging
+ programming language designed for productive parallel computing at scale.
+ Chapel's design and implementation have been undertaken with portability in
+ mind, permitting Chapel to run on multicore desktops and laptops, commodity
+ clusters, and the cloud, in addition to the high-end supercomputers for which
+ it was designed. Chapel's design and development are being led by Cray Inc. in
+ collaboration with academia, computing centers, and industry.

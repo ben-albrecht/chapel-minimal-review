@@ -1,0 +1,15 @@
+#!/bin/sh
+
+
+
+set -e
+
+
+if which pyclean >/dev/null 2>&1; then
+        pyclean -p chapel-minimal
+else
+        dpkg -L chapel-minimal | grep \.py$ | while read file
+        do
+                rm -f "${file}"[co] >/dev/null
+        done
+fi
