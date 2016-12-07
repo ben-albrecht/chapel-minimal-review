@@ -50,9 +50,7 @@
 *   1) Modifies the function rather than creating a clone                     *
 *   2) Does not fold any other code in to the tail                            *
 *                                                                             *
-* This implementation should be broadly applicable to record-like types but   *
-* is only applied to the new string-as-record type during the initial         *
-* integration.                                                                *
+* This implementation should be broadly applicable to record-like types.      *
 *                                                                             *
 ************************************** | *************************************/
 
@@ -232,8 +230,10 @@ ArgSymbol* ReturnByRef::addFormal(FnSymbol* fn)
   AggregateType* refType = type->refType;
   IntentTag      intent  = blankIntentForType(refType);
   ArgSymbol*     formal  = new ArgSymbol(intent, "_retArg", refType);
+  formal->addFlag(FLAG_RETARG);
 
   fn->insertFormalAtTail(formal);
+  fn->addFlag(FLAG_FN_RETARG);
 
   return formal;
 }
@@ -311,7 +311,7 @@ void ReturnByRef::updateAssignmentsFromRefArgToValue(FnSymbol* fn)
 // but fails to insert the required autoCopy.
 //
 // This transformation adds a move/autoCopy statement immediately after
-// the targetted statement.  The <dst> symbol is updated in place in the
+// the targeted statement.  The <dst> symbol is updated in place in the
 // new statement
 //
 //
@@ -458,10 +458,7 @@ void ReturnByRef::addCall(CallExpr* call)
 
 void ReturnByRef::transform()
 {
-  // Update the function
-  transformFunction(mFunction);
-
-  // And all of the call sites
+  // Transform all of the call sites
   for (size_t i = 0; i < mCalls.size(); i++)
   {
     CallExpr* call   = mCalls[i];
@@ -483,11 +480,14 @@ void ReturnByRef::transform()
       INT_ASSERT(false);
     }
   }
+
+  // Then update the function
+  transformFunction(mFunction);
 }
 
 //
 // Transform a call to a function that returns a record to be a call
-// to a revied function that does not return a value and that accepts
+// to a revised function that does not return a value and that accepts
 // a reference to the destination i.e.
 //
 // replace
@@ -545,7 +545,15 @@ void ReturnByRef::transformMove(CallExpr* moveExpr)
               (rhsFn->hasFlag(FLAG_AUTO_COPY_FN) == true ||
                rhsFn->hasFlag(FLAG_INIT_COPY_FN) == true))
           {
-            copyExpr = rhsCall;
+            ArgSymbol* formalArg  = rhsFn->getFormal(1);
+            Type*      formalType = formalArg->type;
+
+            // Cannot reduce initCopy/autoCopy for sync variables
+            if (isSyncType(formalType)   == false &&
+                isSingleType(formalType) == false)
+            {
+              copyExpr = rhsCall;
+            }
           }
         }
       }
@@ -604,7 +612,7 @@ replacementHelper(CallExpr* focalPt, VarSymbol* oldSym, Symbol* newSym,
 //
 // This effectively replaces return-by-value from the given function into
 // return-by-reference through the new argument.  It allows the result to be
-// written directly into sapce allocated in the caller, thus avoiding a
+// written directly into space allocated in the caller, thus avoiding a
 // verbatim copy.
 //
 static FnSymbol*
@@ -613,7 +621,9 @@ createClonedFnWithRetArg(FnSymbol* fn, FnSymbol* useFn)
   SET_LINENO(fn);
   FnSymbol* newFn = fn->copy();
   ArgSymbol* arg = new ArgSymbol(blankIntentForType(useFn->retType->refType), "_retArg", useFn->retType->refType);
+  arg->addFlag(FLAG_RETARG);
   newFn->insertFormalAtTail(arg);
+  newFn->addFlag(FLAG_FN_RETARG);
   VarSymbol* ret = toVarSymbol(newFn->getReturnSymbol());
   INT_ASSERT(ret);
   Expr* returnPrim = newFn->body->body.tail;

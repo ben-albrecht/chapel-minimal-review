@@ -50,7 +50,7 @@ module CString {
   // We can't use the catch-all initCopy or autoCopy because of the
   // transformation of c_strings into string for generic parameters
   // TODO: cant specify return type or else we run into a bug were we do an
-  //       assignment out of these fuctions, causing acess to uninitalized
+  //       assignment out of these functions, causing access to uninitialized
   //       memory for c_string_copy
   pragma "init copy fn"
   inline proc chpl__initCopy(x: c_string) : c_string {
@@ -72,10 +72,6 @@ module CString {
     return x;
   }
 
-  inline proc ==(param s0: c_string, param s1: c_string) param {
-    return __primitive("string_compare", s0, s1) == 0;
-  }
-
   inline proc ==(s0: c_string, s1: c_string) {
     return __primitive("string_compare", s0, s1) == 0;
   }
@@ -87,10 +83,6 @@ module CString {
 //  inline proc ==(s0: c_string, s1: string) {
 //    return __primitive("string_compare", s0, s1.c_str()) == 0;
 //  }
-
-  inline proc !=(param s0: c_string, param s1: c_string) param {
-    return __primitive("string_compare", s0, s1) != 0;
-  }
 
   inline proc !=(s0: c_string, s1: c_string) {
     return __primitive("string_compare", s0, s1) != 0;
@@ -108,15 +100,7 @@ module CString {
     return (__primitive("string_compare", a, b) <= 0);
   }
 
-  inline proc <=(param a: c_string, param b: c_string) param {
-    return (__primitive("string_compare", a, b) <= 0);
-  }
-
   inline proc >=(a: c_string, b: c_string) {
-    return (__primitive("string_compare", a, b) >= 0);
-  }
-
-  inline proc >=(param a: c_string, param b: c_string) param {
     return (__primitive("string_compare", a, b) >= 0);
   }
 
@@ -124,15 +108,7 @@ module CString {
     return (__primitive("string_compare", a, b) < 0);
   }
 
-  inline proc <(param a: c_string, param b: c_string) param {
-    return (__primitive("string_compare", a, b) < 0);
-  }
-
   inline proc >(a: c_string, b: c_string) {
-    return (__primitive("string_compare", a, b) > 0);
-  }
-
-  inline proc >(param a: c_string, param b: c_string) param {
     return (__primitive("string_compare", a, b) > 0);
   }
 
@@ -199,7 +175,7 @@ module CString {
   {
     pragma "insert line file info"
     extern proc c_string_to_chpl_bool(x:c_string) : bool;
-    return c_string_to_chpl_bool(x) : t;
+    return c_string_to_chpl_bool((x:string).strip().c_str()) : t;
   }
 
   //
@@ -223,21 +199,21 @@ module CString {
   extern proc c_string_to_uint64_t(x:c_string) : uint(64);
 
   inline proc _cast(type t, x:c_string) where t == int(8)
-    return c_string_to_int8_t(x);
+    return c_string_to_int8_t((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == int(16)
-    return c_string_to_int16_t(x);
+    return c_string_to_int16_t((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == int(32)
-    return c_string_to_int32_t(x);
+    return c_string_to_int32_t((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == int(64)
-    return c_string_to_int64_t(x);
+    return c_string_to_int64_t((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == uint(8)
-    return c_string_to_uint8_t(x);
+    return c_string_to_uint8_t((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == uint(16)
-    return c_string_to_uint16_t(x);
+    return c_string_to_uint16_t((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == uint(32)
-    return c_string_to_uint32_t(x);
+    return c_string_to_uint32_t((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == uint(64)
-    return c_string_to_uint64_t(x);
+    return c_string_to_uint64_t((x:string).strip().c_str());
 
   //
   // casts from c_string to real/imag types
@@ -252,13 +228,13 @@ module CString {
   extern proc c_string_to_imag64(x:c_string) : imag(64);
 
   inline proc _cast(type t, x:c_string) where t == real(32)
-    return c_string_to_real32(x);
+    return c_string_to_real32((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == real(64)
-    return c_string_to_real64(x);
+    return c_string_to_real64((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == imag(32)
-    return c_string_to_imag32(x);
+    return c_string_to_imag32((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == imag(64)
-    return c_string_to_imag64(x);
+    return c_string_to_imag64((x:string).strip().c_str());
 
   //
   // casts from c_string to complex types
@@ -269,9 +245,9 @@ module CString {
   extern proc c_string_to_complex128(x:c_string) : complex(128);
 
   inline proc _cast(type t, x:c_string) where t == complex(64)
-    return c_string_to_complex64(x);
+    return c_string_to_complex64((x:string).strip().c_str());
   inline proc _cast(type t, x:c_string) where t == complex(128)
-    return c_string_to_complex128(x);
+    return c_string_to_complex128((x:string).strip().c_str());
 
   //
   // casts from complex
@@ -340,33 +316,6 @@ module CString {
   inline proc _cast(type t, x:imag(?w)) where t == c_string
     return _cast(c_string_copy, x);
 
-  // Only support param c_string concatenation (for now)
-  inline proc +(param a: c_string, param b: c_string) param
-    return __primitive("string_concat", a, b);
-
-  inline proc +(param s: c_string, param x: integral) param
-    return __primitive("string_concat", s, x:c_string);
-
-  inline proc +(param x: integral, param s: c_string) param
-    return __primitive("string_concat", x:c_string, s);
-
-  inline proc +(param s: c_string, param x: enumerated) param
-    return __primitive("string_concat", s, x:c_string);
-
-  inline proc +(param x: enumerated, param s: c_string) param
-    return __primitive("string_concat", x:c_string, s);
-
-  inline proc +(param s: c_string, param x: bool) param
-    return __primitive("string_concat", s, x:c_string);
-
-  inline proc +(param x: bool, param s: c_string) param
-    return __primitive("string_concat", x:c_string, s);
-
-  // Looks like we still need c_str + c_str unless I want to change even more
-  // module code code. TODO: Change the module code.
-  inline proc +(a: c_string, b: c_string) {
-    return __primitive("string_concat", a, b);
-  }
   /*
   inline proc +(a:c_string, b:c_string_copy) {
     return __primitive("string_concat", a, b);
@@ -382,7 +331,6 @@ module CString {
   //
   // primitive c_string functions and methods
   //
-  inline proc ascii(param a: c_string) param return __primitive("ascii", a);
   inline proc ascii(a: c_string) return __primitive("ascii", a);
   inline proc c_string.length return __primitive("string_length", this);
   inline proc c_string.size return this.length;
@@ -396,8 +344,10 @@ module CString {
     return __primitive("string_select", this, lo, hi, r2.stride);
   }
 
+  pragma "compiler generated" // avoids param string to c_string coercion
   inline proc param c_string.length param
     return __primitive("string_length", this);
+  pragma "compiler generated" // avoids param string to c_string coercion
   inline proc _string_contains(param a: c_string, param b: c_string) param
     return __primitive("string_contains", a, b);
 

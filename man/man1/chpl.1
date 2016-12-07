@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH CHPL 1 "" "1.13.1" ""
+.TH CHPL 1 "" "1.14.0" ""
 .SH NAME
 \fBchpl\fP \- Compiler for the Chapel Programming Language
 .
@@ -219,8 +219,8 @@ Enable [disable] dead code elimination.
 \fB\-\-fast\fP
 .INDENT 0.0
 .INDENT 3.5
-Turns off all runtime checks using \fB\-\-no\-checks\fP, turns on \fB\-O\fP,
-\fB\-\-specialize\fP, and \fB\-\-vectorize\fP\&.
+Turns off all runtime checks using \fB\-\-no\-checks\fP, turns on \fB\-O\fP and
+\fB\-\-specialize\fP\&.
 .UNINDENT
 .UNINDENT
 .sp
@@ -283,6 +283,14 @@ optimize iterators that are not inlined.
 .UNINDENT
 .UNINDENT
 .sp
+\fB\-\-[no\-]optimize\-array\-indexing\fP
+.INDENT 0.0
+.INDENT 3.5
+Enable [disable] an optimization that removes an extra multiply in array
+indexing when it\(aqs provably unnecessary. By default this is enabled.
+.UNINDENT
+.UNINDENT
+.sp
 \fB\-\-[no\-]optimize\-loop\-iterators\fP
 .INDENT 0.0
 .INDENT 3.5
@@ -294,9 +302,9 @@ are defined in terms of a single loop. By default this is enabled.
 \fB\-\-[no\-]vectorize\fP
 .INDENT 0.0
 .INDENT 3.5
-Enable [disable] generating vectorization hints for target compiler. If
-enabled, hints will always be generated, but the effects will vary based
-on the target compiler.
+Enable [disable] generating vectorization hints for the target compiler.
+If enabled, hints will always be generated, but the effects on performance
+(and in some cases correctness) will vary based on the target compiler.
 .UNINDENT
 .UNINDENT
 .sp

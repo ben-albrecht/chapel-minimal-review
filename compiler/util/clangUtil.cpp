@@ -45,6 +45,8 @@
 
 #include "build.h"
 
+#include "llvmDebug.h"
+
 typedef Type ChapelType;
 
 #ifndef HAVE_LLVM
@@ -327,7 +329,10 @@ void handleMacro(const IdentifierInfo* id, const MacroInfo* macro)
       int hex;
       int isfloat;
       if( negate ) numString.append("-");
-      numString.append(tok.getLiteralData(), tok.getLength());
+
+      if (tok.getLiteralData() && tok.getLength()) {
+        numString.append(tok.getLiteralData(), tok.getLength());
+      }
 
       if( debugPrint) printf("num = %s\n", numString.c_str());
 
@@ -511,10 +516,16 @@ void readMacrosClang(void) {
 //    since we might need to code generate called functions.
 // 3: append to the target description
 // 4: get LLVM values for code generated C things (e.g. types, function ptrs)
-
-// In previous versions, we had CCodeGenConsumer re-implementing
-// CodeGenerator from ModuleBuilder.cpp. But that creates a maintenance
-// burden, so here we switch to inheriting from CodeGenerator.
+//
+// This code is boiler-plate code mostly copied from ModuleBuilder.cpp - see
+// http://clang.llvm.org/doxygen/ModuleBuilder_8cpp_source.html
+// Note that ModuleBuilder.cpp is from the clang project and distributed
+// under a BSD-like license.
+//
+// As far as we know, there is no public API for clang that
+// would allow us the level of control we need over code generation.
+// The portions that are not copied are delineated by
+// comments indicating that they are custom to Chapel.
 class CCodeGenConsumer : public ASTConsumer {
   private:
     GenInfo* info;
@@ -804,7 +815,7 @@ class CCodeGenConsumer : public ASTConsumer {
      // ASTConsumer override:
      // \brief Handle a pragma that emits a mismatch identifier and value to
      // the object file for the linker to work with.  Currently, this only
-     // exists tosupport Microsoft's #pragma detect_mismatch.
+     // exists to support Microsoft's #pragma detect_mismatch.
      virtual void HandleDetectMismatch(llvm::StringRef Name,
                                                llvm::StringRef Value) LLVM_CXX_OVERRIDE {
        Builder->AddDetectMismatch(Name, Value);
@@ -850,21 +861,30 @@ CREATE_AST_CONSUMER_RETURN_TYPE CCodeGenAction::CreateASTConsumer(
 #endif
 };
 
-static void cleanupClang(GenInfo* info)
-{
+static void finishClang(GenInfo* info){
   if( info->cgBuilder ) {
     info->cgBuilder->Release();
+  }
+  info->Diags.reset();
+  info->DiagID.reset();
+}
+
+static void deleteClang(GenInfo* info){
+  if( info->cgBuilder ) {
     delete info->cgBuilder;
     info->cgBuilder = NULL;
   }
   delete info->targetData;
-  info->targetData = NULL;
   delete info->Clang;
   info->Clang = NULL;
   delete info->cgAction;
   info->cgAction = NULL;
-  info->Diags.reset();
-  info->DiagID.reset();
+}
+
+static void cleanupClang(GenInfo* info)
+{
+  finishClang(info);
+  deleteClang(info);
 }
 
 void setupClang(GenInfo* info, std::string mainFile)
@@ -913,11 +933,13 @@ void setupClang(GenInfo* info, std::string mainFile)
     // Make sure we include clang's internal header dir
 #if HAVE_LLVM_VER >= 34
     SmallString<128> P;
+    SmallString<128> P2; // avoids a valgrind overlapping memcpy
+
     P = clangexe;
     // Remove /clang from foo/bin/clang
-    P = sys::path::parent_path(P);
+    P2 = sys::path::parent_path(P);
     // Remove /bin   from foo/bin
-    P = sys::path::parent_path(P);
+    P = sys::path::parent_path(P2);
 
     if( ! P.equals("") ) {
       // Get foo/lib/clang/<version>/
@@ -986,13 +1008,16 @@ void finishCodegenLLVM() {
   info->FPM_postgen = NULL;
 
   // Now finish any Clang code generation.
-  cleanupClang(info);
+  finishClang(info);
+
+  if(debug_info)debug_info->finalize();
 
   // Verify the LLVM module.
   if( developer ) {
     bool problems;
 #if HAVE_LLVM_VER >= 35
     problems = verifyModule(*info->module, &errs());
+    //problems = false;
 #else
     problems = verifyModule(*info->module, PrintMessageAction);
 #endif
@@ -1848,6 +1873,8 @@ void makeBinaryLLVM(void) {
   output.keep();
   output.os().flush();
 
+  //finishClang is before the call to the debug finalize
+  deleteClang(info);
 
   std::string options = "";
 
@@ -1907,7 +1934,7 @@ void makeBinaryLLVM(void) {
   // Start linker options with C args
   // This is important to get e.g. -O3 -march=native
   // since with LLVM we are doing link-time optimization.
-  // We know it's OK to inclued -I (e.g.) since we're calling
+  // We know it's OK to include -I (e.g.) since we're calling
   // clang++ to link so that it can optimize the .bc files.
   options = cargs;
 

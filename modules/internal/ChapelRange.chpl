@@ -84,9 +84,9 @@
 
  */
 module ChapelRange {
-  
-  use Math; // for abs().
-  
+
+  use Math;
+
   // Turns on range iterator debugging.
   pragma "no doc"
   config param debugChapelRange = false;
@@ -514,7 +514,58 @@ module ChapelRange {
   proc ident(r1: range(?), r2: range(?)) param
     return false;
   
-  
+  //////////////////////////////////////////////////////////////////////////////////
+  // Range Casts
+  //
+/* Cast a range to another range type. If the old type is stridable and the
+   new type is not stridable, ensure at runtime that the old stride was 1.
+ */
+pragma "no doc"
+proc range.safeCast(type t) where isRangeType(t) {
+  var tmp: t;
+
+  if tmp.boundedType != this.boundedType {
+    compilerError("cannot cast range from ",
+                  this.boundedType:string, " to ", tmp.boundedType:string);
+  }
+
+  if tmp.stridable {
+    tmp._stride = this.stride;
+  } else if this.stride != 1 {
+    halt("illegal safeCast from non-unit stride range to unstridable range");
+  }
+
+  tmp._low = this.low.safeCast(tmp.idxType);
+  tmp._high = this.high.safeCast(tmp.idxType);
+  tmp._alignment = this.alignment.safeCast(tmp.idxType);
+  tmp._aligned = this.aligned;
+  return tmp;
+}
+
+/* Cast a range to a new range type.  If the old type was stridable and the
+   new type is not stridable, then force the new stride to be 1.
+ */
+pragma "no doc"
+proc _cast(type t, r: range(?)) where isRangeType(t) {
+  var tmp: t;
+
+  if tmp.boundedType != r.boundedType {
+    compilerError("cannot cast range from ",
+                  r.boundedType:string, " to ", tmp.boundedType:string);
+  }
+
+  if tmp.stridable {
+    tmp._stride = r.stride;
+  }
+
+  tmp._low = r.low: tmp.idxType;
+  tmp._high = r.high: tmp.idxType;
+  tmp._alignment = r.alignment: tmp.idxType;
+  tmp._aligned = r.aligned;
+  return tmp;
+}
+
+
   //////////////////////////////////////////////////////////////////////////////////
   // Bounds checking
   //
@@ -783,11 +834,7 @@ module ChapelRange {
     // of assignment does not disable the POD optimization.
     // Although provided explicitly, this function is effectively trivial,
     // since it performs what is effectively a bit-wise copy.
-    // It effectively labels the function as trivial, even though this is not
-    // precisely true.  In the case of an assignment from a stridable to non-
-    // stridable range, there is a run-time check which will be missed when the
-    // optimization is applied.  The rest of the routine is trivial in the
-    // sense that it performs the equivalent of a bit-wise copy.
+    //
     // The POD optimization currently removes initCopy, autoCopy and destructor
     // calls whose arguments are of plain-old-data type.  Future applications
     // of this optimization may also remove assignment calls.
@@ -808,11 +855,10 @@ module ChapelRange {
   {
     if r1.boundedType != r2.boundedType then
       compilerError("type mismatch in assignment of ranges with different boundedType parameters");
-  
+
     if !s1 && s2 then
-      if r2._stride != 1 then
-        halt("non-stridable range assigned non-unit stride");
-  
+      compilerError("type mismatch in assignment of ranges with different stridable parameters"); 
+
     r1._low = r2._low;
     r1._high = r2._high;
     r1._stride = r2._stride;
@@ -882,7 +928,7 @@ module ChapelRange {
       if chpl_need_to_check_step(step, strType) &&
          step > (max(strType):step.type)
       then
-        __primitive("chpl_error", c"the step argument of the 'by' operator is too large and cannot be represented within the range's stride type " + strType:string);
+        __primitive("chpl_error", ("the step argument of the 'by' operator is too large and cannot be represented within the range's stride type " + strType:string):c_string);
     }
   }
 
@@ -923,6 +969,7 @@ module ChapelRange {
    *
    * because the parser renames the routine since 'by' is a keyword.
    */
+  pragma "no doc"
   inline proc by(r, step) {
     if !isRange(r) then
       compilerError("the first argument of the 'by' operator is not a range");
@@ -939,6 +986,7 @@ module ChapelRange {
    */
   // We want to warn the user at compiler time if they had an invalid param
   // stride rather than waiting until runtime.
+  pragma "no doc"
   inline proc by(r : range(?), param step) {
     chpl_range_check_stride(step, r.idxType);
     return chpl_by_help(r, step:r.strType);
@@ -2052,8 +2100,15 @@ module ChapelRange {
     var U = (one, zero, u);
     var V = (zero, one, v);
   
-    while V(3) != 0 do
-      (U, V) = let q = U(3)/V(3) in (V, U - V * (q, q, q));
+    while V(3) != 0 {
+      // This is a workaround for a bug.
+      // The previous version was:
+      //(U, V) = let q = U(3)/V(3) in (V, U - V * (q, q, q));
+      var oldU = U;
+      var q = U(3)/V(3);
+      U = V;
+      V = oldU - V * (q, q, q);
+    }
   
     return (U(3), U(1));
   }

@@ -29,7 +29,7 @@
 
 class AstPrintDocs : public AstVisitorTraverse {
 public:
-  AstPrintDocs(std::string moduleName, std::string path);
+  AstPrintDocs(std::string moduleName, std::string path, std::string parentName);
                   ~AstPrintDocs();
 
   virtual bool   enterAggrType    (AggregateType*     node);
@@ -42,6 +42,7 @@ public:
   virtual void   exitModSym       (ModuleSymbol*      node);
   virtual void   visitVarSym      (VarSymbol*         node);
 
+  virtual bool   enterBlockStmt   (BlockStmt*         node);
   virtual bool   enterWhileDoStmt (WhileDoStmt*       node);
   virtual bool   enterDoWhileStmt (DoWhileStmt*       node);
   virtual bool   enterCForLoop    (CForLoop*          node);
@@ -55,6 +56,7 @@ private:
   unsigned int    tabs;
   std::string     moduleName;
   std::string     pathWithoutPostfix;
+  std::string     parentName;
 };
 
 #endif

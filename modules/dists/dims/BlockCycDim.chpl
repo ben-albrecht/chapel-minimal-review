@@ -22,7 +22,7 @@
 //
 
 use DimensionalDist2D;
-
+use RangeChunk only ;
 
 config const BlockCyclicDim_allowParLeader = true;
 config param BlockCyclicDim_enableArrayIterWarning = false;  // 'false' for testing
@@ -387,7 +387,7 @@ on each locale, then starts over:
  // the pair (locNo(j), storageOff(j)) is unique for each integer j
  storageOff(i) = cycNo(i) * blockSize + locOff(i)
 
-Advdanced: compress the storage based on the above advanced property,
+Advanced: compress the storage based on the above advanced property,
 which implies that:
  the pair (locNo(i), storageOff(i) div |wSt|) is unique
  for each 'i' - member of 'whole'.
@@ -418,7 +418,7 @@ to stay the same throughout the life of a domain descriptor.
 (This is so that our storage indices remain consistent - which is
 useful to implement Chapel's preservation of array contents upon
 domain assignments.)
-This implies that the same cycAdj should accomodate wLo for any
+This implies that the same cycAdj should accommodate wLo for any
 domain bounds that can be assigned to our domain descriptor.
 That may not be convenient in practice.
 */
@@ -775,25 +775,9 @@ proc BlockCyclic1locdom.dsiMyDensifiedRangeForTaskID1d(globDD, taskid:int, numTa
 
   // Here is the densified range for all indices on this locale.
   const hereDenseInds = 0:resultIdxType..#wholeR.length by nLocs align AL;
-  const hereNumInds   = hereDenseInds.length;
-  const hereFirstInd  = hereDenseInds.first;
 
-  // This is our piece of hereNumInds
-  const (begNo,endNo) = _computeChunkStartEnd(hereNumInds, numTasks, taskid+1);
-
-  // Pick the corresponding part of hereDenseInds
-  const begIx = ( hereFirstInd + (begNo - 1) * nLocs ):resultIdxType;
-  const endIx = ( hereFirstInd + (endNo - 1) * nLocs ):resultIdxType;
-  assert(hereDenseInds.member(begIx));
-  assert(hereDenseInds.member(endIx));
-
-//writeln("MyDensifiedRangeForTaskID(", globDD.name, ") on ", locId,
-//        "  taskid ", taskid, " of ", numTasks, "  ", begIx, "...", endIx,
-//        "   fl=", firstLoc, " al=", AL,
-//        "  fullR ", hereDenseInds, " myR ", begIx .. endIx by nLocs,
-//        "");
-
-  return begIx .. endIx by nLocs;
+  // This is our chunk of hereDenseInds
+  return chunk(hereDenseInds, numTasks, taskid);
 }
 
 proc BlockCyclic1locdom.dsiMyDensifiedRangeType1d(globDD) type

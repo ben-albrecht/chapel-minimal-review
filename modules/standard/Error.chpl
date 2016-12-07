@@ -67,7 +67,7 @@ proc quote_string(s:string, len:ssize_t) {
 }
 
 /* Halt with a useful message if there was an error. Do nothing if the error
-   argument does not indicate an error occured. The error message printed
+   argument does not indicate an error occurred. The error message printed
    when halting will describe the error passed and msg will be appended to it.
 
    :arg error: the error object
@@ -79,13 +79,13 @@ proc ioerror(error:syserr, msg:string)
     var errstr:c_string;
     var strerror_err:err_t = ENOERR;
     errstr = sys_strerror_syserr_str(error, strerror_err);
-    const err_msg: string = errstr + " " + msg;
+    const err_msg: string = errstr:string + " " + msg;
     __primitive("chpl_error", err_msg.c_str());
   }
 }
 
 /* Halt with a useful message if there was an error. Do nothing if the error
-   argument does not indicate an error occured. The error message printed
+   argument does not indicate an error occurred. The error message printed
    when halting will describe the error passed and msg will be appended to it,
    along with the path related to the error (for example, the path to a file
    which could not be opened).
@@ -106,7 +106,7 @@ proc ioerror(error:syserr, msg:string, path:string)
 }
 
 /* Halt with a useful message if there was an error. Do nothing if the error
-   argument does not indicate an error occured. The error message printed
+   argument does not indicate an error occurred. The error message printed
    when halting will describe the error passed and msg will be appended to it,
    along with the path and file offset related to the error. For example, this
    routine might indicate a file format error at a particular location.

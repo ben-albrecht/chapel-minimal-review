@@ -73,7 +73,7 @@ modules: FORCE
 runtime: FORCE
 	cd runtime && $(MAKE)
 	-@if [ "llvm" = `${CHPL_MAKE_HOME}/util/chplenv/chpl_llvm.py` ]; then \
-	source ${CHPL_MAKE_HOME}/util/config/set_clang_included.bash && \
+	. ${CHPL_MAKE_HOME}/util/config/set_clang_included.bash && \
 	cd runtime && $(MAKE) ; \
 	fi
 
@@ -86,7 +86,7 @@ third-party-try-re2: FORCE
 	-@if [ -z "$$CHPL_REGEXP" ]; then \
 	cd third-party && $(MAKE) try-re2; \
 	if [ "llvm" = `${CHPL_MAKE_HOME}/util/chplenv/chpl_llvm.py` ]; then \
-	source ${CHPL_MAKE_HOME}/util/config/set_clang_included.bash && \
+	. ${CHPL_MAKE_HOME}/util/config/set_clang_included.bash && \
 	$(MAKE) try-re2; \
 	fi \
 	fi
@@ -95,7 +95,7 @@ third-party-try-gmp: FORCE
 	-@if [ -z "$$CHPL_GMP" ]; then \
 	cd third-party && $(MAKE) try-gmp; \
 	if [ "llvm" = `${CHPL_MAKE_HOME}/util/chplenv/chpl_llvm.py` ]; then \
-	source ${CHPL_MAKE_HOME}/util/config/set_clang_included.bash && \
+	. ${CHPL_MAKE_HOME}/util/config/set_clang_included.bash && \
 	$(MAKE) try-gmp; \
 	fi \
 	fi
@@ -121,17 +121,6 @@ always-build-chpldoc: FORCE
 	-@if [ -n "$$CHPL_ALWAYS_BUILD_CHPLDOC" ]; then \
 	$(MAKE) chpldoc; \
 	fi
-
-clean-module-docs:
-	cd modules && $(MAKE) clean-documentation
-
-module-docs-only:
-	cd modules && $(MAKE) documentation
-
-module-docs: chpldoc
-# Call `make module-docs-only` as part of the recipe instead of as a
-# dependency so parallel make executions correctly build chpldoc first.
-	$(MAKE) module-docs-only
 
 chplvis: compiler third-party-fltk FORCE
 	cd tools/chplvis && $(MAKE)

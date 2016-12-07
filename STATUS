@@ -26,6 +26,7 @@ General (see also portability section at the bottom of this file)
     distributions) are leaked
   - Non-default domain maps may be leaked
   - Data associated with iterators may be leaked
+  - Records with generic fields may be leaked
 - Separate compilation of Chapel files is not supported.
 - Back-end compilers may emit warning messages.
 - The --gdb flag is only supported for single-locale platforms that
@@ -50,7 +51,10 @@ Types, Params, Variables, and Consts
   variables.
 - When setting a boolean config variable on the command line, using a
   space as the delimiter results in an "Unexpected flag" error.
+- When setting an integral config variable on the command line, only
+  base 10 values are supported.
 - Some assignments to ref variables can cause an internal compiler error.
+- Taking a reference of an array formal argument causes a const checking error.
 - Variables that rely on each other for initialization
   and/or type inference may result in an internal compiler error.
 - Constant checking is incomplete.
@@ -66,8 +70,7 @@ Conversions
   compile or produce incorrect answers.
 - Casts to non-type variables do not result in an error at compile time.
 - Integer to c_string cast promotes from int to real before cast is performed
-- Cast from string to scalar type does not ignore leading white space
-
+- Casting from string to uint(32) clips result to 31 bits on 32 bit platforms
 
 Statements and Expressions
 --------------------------
@@ -80,7 +83,6 @@ Statements and Expressions
   Also, on statements in local blocks should be illegal, but result in
   local execution.
 - Nested for expressions can cause runtime failure
-- Index variable in for expression can interfere with outer var by same name
 - Using domain extraction syntax inside a variable declaration causes
   compiler failure instead of a clean error
 
@@ -111,8 +113,10 @@ Functions and Iterators
 - Specified argument types that are not types should return a Chapel
   compile time error, but instead they may result in an internal
   compiler error or compile and run.
+- Formal arguments that depend on preceeding vararg arguments fail to compile
 - Array-of-array formal argument declarations do not work.
 - Arrays returned from a ref function result in memory corruption.
+- Returning arrays from getter/setter functions always uses the setter version
 - Function argument with type tuple of generic class results in a
   compiler assertion.
 - Actual arguments for formals with out intent do not follow implicit
@@ -129,6 +133,9 @@ Functions and Iterators
 - Ref functions returning multiple class types should be illegal, but
   instead they are compiled and result in runtime error.
 - Ref functions that return local data may not result in an error.
+- Ref functions that return fields from a record argument passed by
+  blank intent may produce incorrect results.
+- Blank argument intent should be const ref for records, not make a copy
 - Type functions with unambiguous return paths may result in "illegal
   cast" errors.
 - Support for closures and first-class functions is not complete.
@@ -139,9 +146,9 @@ Functions and Iterators
   when compiled with the --baseline flag.
 - Const checking is incorrect for standalone iterator index variables
 - Ref iterators yielding records may introduce uninitialized values
-- The (deprecated) implicit 'setter' argument does not work in ref iterators.
-- The (deprecated) implicit 'setter' argument passed to other functions may
-  be incorrect.
+- Passing unexpected argument to default 'these' iterator causes internal error
+- The ref version of a ref/val function pair is sometimes chosen when the val
+  version would be better.
 - A forall loop with an iteratable expression that does not provide
   leader/follower iterators cause an internal compiler error.
 - Function return point analysis is conservative.
@@ -212,7 +219,7 @@ Classes, Records, and Unions
 - Multiple inheritance as defined in the spec (single base class with
   fields) is not implemented.
 - Records returned from functions are destructed incorrectly.
-- User-defined constructors and destructors are not robust.
+- User-defined initializers/constructors and destructors are not robust.
 - Copy constructors are not properly implemented.
 - Generic methods called with param actuals may result in "unresolved
   call" error at compile time or incorrect generated code.
@@ -220,15 +227,13 @@ Classes, Records, and Unions
 - Cannot call a standalone function from a class method of the same name
 - Declaring class members using type aliases may result in unresolved
   type errors.
-- Cannot call 'new' on type variables for classes and records
 - Ambiguous definitions of class methods that are overridden in a
   subclass result in an internal compiler error.
 - Classes or records nested in procedures or iterators may result in a
   compile time error.
-- Non-sync arguments to default constructors that expect sync vars are
-  not properly coerced to sync type.
+- Non-sync arguments to default initializers/constructors that expect
+  sync vars are not properly coerced to sync type.
 - Assigning to param class members from constructors may fail to compile
-- Subclassing uninstantiated generic classes should be prohibited but is not.
 - Implicit casting of record parameters not implemented.
 - Array alias arguments to constructors fail to compile.
 - Atomics are not passed by ref by default
@@ -239,12 +244,10 @@ Classes, Records, and Unions
 - Nested classes and records can result in multiple destructor calls
 - Nested record inheritance results in a compilation error.
 - Nested record constructor should not need an explicit generic outer
+- Nested records as fields in outer classes/records is not robust
 - Unused records defined in procedures result in an internal compiler error.
 - Recursive records result in function resolution error or internal
   compiler error.
-- Remote records have wide members shallow-copied.  Array members may
-  not share the same locale as the containing record violating the
-  intended semantics of array copying.
 - Classes arguments passed to out, inout, and ref intent formals
   result in a compiler internal error.
 - Specifying the type when declaring a record variable with const
@@ -257,6 +260,7 @@ Classes, Records, and Unions
 - Comparison (== or !=) of records with array or domain fields result
   in a back-end C compiler error.
 - There's no way to determine which field of a union is "active".
+- Setting union field from constructor doesn't work
 
 
 Domain Maps, Domains and Arrays
@@ -264,8 +268,8 @@ Domain Maps, Domains and Arrays
 - Reference counting (used for memory management of domain maps,
   domains, and arrays) may contain bugs.
 - The default domain map is currently a single type for all default domains
-- Distributed domain maps are currently only supported for dense,
-  rectangular domains.
+- Assignment from a distributed domain to a non-distributed domain causes
+  a runtime error.
 - Assignment to domain maps with declared domains not supported for
   all domain map types.
 - PrivateDist must be used at the top-level scope.
@@ -284,6 +288,9 @@ Domain Maps, Domains and Arrays
   generic instantiation.
 - Modifications to Sparse domains are not thread-safe.
 - Sparse domain/array slicing is not supported.
+- Sparse arrays of arrays can halt when reading values that were not added
+- Associative arrays of arrays can add new array elements by reading
+  empty positions
 - Associative domain/array slicing is not supported.
 - Associative domain clear() does not reset values of arrays declared
   over the domain.
@@ -298,10 +305,13 @@ Domain Maps, Domains and Arrays
 Task Parallelism and Synchronization
 ------------------------------------
 - Atomic statements are not implemented.
+- Remove value forwarding does not respect the memory order imposed by
+  atomic variables.
 - Deadlock may occur due to an insufficient number of threads.
 - Arrays may not be moved to the heap due to begin statements or
   other indirect array element accesses.
 - Sync variables cannot be used in conditional expressions
+- Semantics of sync class types are not clearly defined
 - Default 'const ref' task intent for record does not prevent updates to sync
   variable field in the record from within task.
 - A 'sync' statement with a 'begin' statement in it at module scope can cause
@@ -332,6 +342,7 @@ Data Parallelism
   serialized as they should be.
 - Task intents do not work for coforalls and cobegins used in iterators.
 - 'in' and 'const in' forall intents do not work correctly
+- Default forall intent for records results in extra record copies
 - Iterating over a range where bound+stride overflows the index type
   results in runtime halt
 - Overloaded xor used in a reduction may result in an internal
@@ -395,8 +406,6 @@ Miscellaneous
   compilation time to become unreasonable.
 - Types composed of runtime types are not runtime types.
 - Indexing string literals results in a parse error
-- The --minimal-modules feature has been disabled because strings are
-  required, but are records in the standard modules.
 - Getting the locale-id of variable in local-on statement can be incorrect.
 
 Performance
@@ -413,8 +422,6 @@ chpldoc
 -------
 - chpldoc comments that are not closed with using the specified
   comment style are not detected.
-- chpldoc generates documentation for some symbols that should not be
-  documented
 - chpldoc is incorrect or incomplete for some types
 
 
@@ -432,9 +439,17 @@ Developer
 LLVM (experimental)
 -------------------
 
+
 Multi-locale/GASNet executions
 ------------------------------
 - stdin does not work for multi-locale/GASNet executions
+
+
+Incremental compilation (experimental)
+--------------------------------------
+- Incremental compilation support is not enabled for LLVM
+- Cannot include C header files that define symbols with
+  incremental compilation enabled
 
 
 Portability

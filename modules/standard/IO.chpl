@@ -219,12 +219,12 @@ more details on the situation in which this kind of data race can occur.
   conditions on channel buffers. In particular, the problem comes up for
   programs that make:
 
-   * conncurrent operations on multiple channels that operate on overlapping
+   * concurrent operations on multiple channels that operate on overlapping
      regions of a file
    * where at least one of the overlapping channels is a writing channel
    * and where data could be stored more than one of the overlapping channel's
      buffers at the same time (ie, write and read ordering are not enforced
-     through :proc:`channel.flush` and other mean such as sync variabless).
+     through :proc:`channel.flush` and other mean such as sync variables).
 
   Note that it is possible in some cases to create a :record:`file` that does
   not allow multiple channels at different offsets. Channels created on such
@@ -409,7 +409,7 @@ Overview of Format Strings
 In a manner similar to C's 'printf' and 'scanf', the IO package includes
 :proc:`channel.writef` and :proc:`channel.readf` functions. These functions take
 in a format string and some arguments. The :proc:`string.format` method is also
-available and is loosly equivalent to C's 'sprintf'. For example, one might do:
+available and is loosely equivalent to C's 'sprintf'. For example, one might do:
 
 .. code-block:: chapel
 
@@ -469,7 +469,7 @@ Generic Numeric Conversions
 
   In all cases, the output is padded on the left to the total length
   of the conversion specifier (6 in this example).  The output
-  can be longer, when needed to accomodate the number.
+  can be longer, when needed to accommodate the number.
 
 ``%{##}``
   integral value padded out to 2 digits. Also works with real, imaginary
@@ -582,7 +582,7 @@ Real Conversions
 ``%6r``
  as with ``%r`` but padded on the left to 6 columns (ie right-justified)
 ``%-6r``
- as with ``%r`` but padded on the right to 6 columns (ie left-justfied)
+ as with ``%r`` but padded on the right to 6 columns (ie left-justified)
 ``%.4r``
  as with ``%r`` but with 4 significant digits
 ``%.*r``
@@ -610,7 +610,7 @@ Real Conversions
 ``%Er``
  like %er but with the 'e' in uppercase, e.g. ``8.2E-23``
 ``%.4er``
- exponential notiation with 4 digits after the period, e.g. ``8.2000e-23``
+ exponential notation with 4 digits after the period, e.g. ``8.2000e-23``
 
 ``%xer``
  hexadecimal number using p to mark exponent e.g. ``6c.3f7p-2a``
@@ -1290,7 +1290,8 @@ via the ``str_style`` field in :record:`iostyle`.
   most-significant. This way of encoding a variable-byte length  matches
   `Google Protocol Buffers <https://github.com/google/protobuf/>`_.
 * ``iostringstyle.data_toeof`` indicates a string format that contains
-  string data until the end of the file
+  only the string data without any length or terminator. When reading,
+  this format will read a string until the end of the file is reached.
 * ``iostringstyle.data_null`` indicates a string that is terminated
   by a zero byte. It can be combined with other numeric
   values to indicate a string terminated by a particular byte. For example,
@@ -1309,6 +1310,35 @@ enum iostringstyle {
   data_toeof = -0xff00,
   data_null = -0x0100,
 }
+
+/*
+
+This enum contains values used to control text I/O with strings
+via the ``string_format`` field in :record:`iostyle`.
+
+  * ``iostringformat.word`` means string is as-is;
+    reading reads until whitespace. This is the default.
+  * ``iostringformat.basic`` means only escape *string_end* and ``\``
+    with ``\``
+  * ``iostringformat.chpl`` means  escape *string_end*
+    ``\`` ``'`` ``"`` ``\n`` with ``\`` and
+    nonprinting characters ``c = 0xXY`` with ``\xXY``
+  * ``iostringformat.json`` means  escape *string_end* ``"`` and ``\``
+    with ``\``, and nonprinting characters ``c = \uABCD``
+  * ``iostringformat.toend`` means string is as-is; reading reads until
+    *string_end*
+  * ``iostringformat.toeof`` means string is as-is; reading reads until
+    end of file
+*/
+enum iostringformat {
+  word = 0,
+  basic = 1,
+  chpl = 2,
+  json = 3,
+  toend = 4,
+  toeof = 5,
+}
+
 
 /*
 
@@ -1344,7 +1374,7 @@ proc stringStyleExactLen(len:int(64)) {
 
 /*
   This method returns the appropriate :record:`iostyle` ``str_style`` value
-  to indicate a string format where string data is preceeded by a variable-byte
+  to indicate a string format where string data is preceded by a variable-byte
   length as described in :type:`iostringstyle`.
  */
 proc stringStyleWithVariableLength() {
@@ -1353,7 +1383,7 @@ proc stringStyleWithVariableLength() {
 
 /*
   This method returns the appropriate :record:`iostyle` ``str_style`` value
-  to indicate a string format where string data is preceeded by a ``lengthBytes``
+  to indicate a string format where string data is preceded by a ``lengthBytes``
   of length. Only lengths of 1, 2, 4, or 8 are supported; if this method
   is called with any other length, it will halt with an error.
  */
@@ -1504,7 +1534,7 @@ extern record iostyle { // aka qio_style_t
      in binary mode? See :type:`iostringstyle` for more information
      on what the values of ``str_style`` mean.
    */
-  var str_style:int(64) = -10;
+  var str_style:int(64) = iostringstyle.data_toeof;
 
   // text style choices
   /* When performing text I/O, pad out to this many columns */
@@ -1516,50 +1546,68 @@ extern record iostyle { // aka qio_style_t
   /* When performing text I/O, do not use more than this many bytes */
   var max_width_bytes:uint(32) = max(uint(32));
 
-  /* What character do we start strings with, when appropriate? */
+  /* What character do we start strings with, when appropriate? Default is " */
   var string_start:style_char_t = 0x22; // "
-  /* What character do we end strings with, when appropriate? */
+  /* What character do we end strings with, when appropriate? Default is " */
   var string_end:style_char_t = 0x22; // "
 
   /* How should we format strings when performing text I/O?
-
-      * ``QIO_STRING_FORMAT_WORD`` means string is as-is;
-        reading reads until whitespace.
-      * ``QIO_STRING_FORMAT_BASIC`` means only escape *string_end* and ``\``
-        with ``\``
-      * ``QIO_STRING_FORMAT_CHPL`` means  escape *string_end*
-        ``\`` ``'`` ``"`` ``\n`` with ``\`` and
-        nonprinting characters ``c = 0xXY`` with ``\xXY``
-      * ``QIO_STRING_FORMAT_JSON`` means  escape *string_end* ``"`` and ``\``
-        with ``\``, and nonprinting characters ``c = \uABCD``
-      * ``QIO_STRING_FORMAT_TOEND`` means string is as-is; reading reads until
-        *string_end*
-      * ``QIO_STRING_FORMAT_TOEOF`` means string is as-is; reading reads until
-        end of file
+     See :type:`iostringstyle` for more information
+     on what the values of ``str_style`` mean.
    */
-  var string_format:uint(8) = 0;
+  var string_format:uint(8) = iostringformat.word:uint(8);
   // numeric scanning/printing choices
+  /* When reading or writing a numeric value in a text mode channel,
+     what base should be used for the number? Default of 0 means decimal.
+     Bases 2, 8, 10, 16 are supported for integers. Bases 10 and 16
+     are supported for real values.*/
   var base:uint(8) = 0;
+  /* When reading or writing a numeric value in a text mode channel,
+     how is the integer portion separated from the fractional portion?
+     Default is '.' */
   var point_char:style_char_t = 0x2e; // .
+  /* When reading or writing a numeric value in a text mode channel,
+     how is the exponent written? Default is 'e' */
   var exponent_char:style_char_t = 0x65; // e
+  /* When reading or writing a numeric value in a text mode channel,
+     when base is > 10, how is the exponent written? Default is 'e' */
   var other_exponent_char:style_char_t = 0x70; // p
+  /* What character denotes a positive number? Default is '+' */
   var positive_char:style_char_t = 0x2b; // +;
+  /* What character denotes a negative number? Default is '-' */
   var negative_char:style_char_t = 0x2d; // -;
+  /* What character follows an the imaginary number? Default is 'i' */
   var i_char:style_char_t = 0x69; // i
+  /* When writing in a base other than 10, should the prefix be used?
+     (e.g. hexadecimal numbers are prefixed with 0x) */
   var prefix_base:uint(8) = 1;
   // numeric printing choices
+  /* When padding with spaces, which pad character to use? Default is ' ' */
   var pad_char:style_char_t = 0x20; // ' '
+  /* When printing a positive numeric value, should the + be shown? */
   var showplus:uint(8) = 0;
+  /* When printing a numeric value in hexadecimal, should it be
+     uppercase? */
   var uppercase:uint(8) = 0;
+  /* When printing a numeric value in a field of specified width, should
+     the number be on the left (that is padded on the right?). The default
+     is to right-justify the number. */
   var leftjustify:uint(8) = 0;
+  /* When printing an integral value using a real format, should a trailing
+     decimal point be included? If so, the value 0 will be written as '0.' */
   var showpoint:uint(8) = 0;
+  /* When printing an integral value using a real format, should a trailing
+     decimal point and zero be included? If so, the value 0 will be written
+     as '0.0' */
   var showpointzero:uint(8) = 1;
+  /* Specifies the precision for real format conversions. See the description
+     of realfmt below. */
   var precision:int(32) = -1;
 
   /*
      Formatting of real numbers:
 
-       * 0 means  print out 'significant_digits' number of significant digits
+       * 0 means  print out 'precision' number of significant digits
          (%g in printf)
        * 1 means  print out 'precision' number of digits after the decimal point
          (%f)
@@ -1590,7 +1638,7 @@ private extern proc qio_file_open_tmp(ref file_out:qio_file_ptr_t, iohints:c_int
 private extern proc qio_file_open_mem(ref file_out:qio_file_ptr_t, buf:qbuffer_ptr_t, const ref style:iostyle):syserr;
 
 // Same as qio_file_open_access in, except this time we pass though our
-// struct that will initilize the file with the appropriate functions for that FS
+// struct that will initialize the file with the appropriate functions for that FS
 pragma "no doc"
 extern proc qio_file_open_access_usr(out file_out:qio_file_ptr_t, path:c_string,
                                      access:c_string, iohints:c_int, /*const*/ ref style:iostyle,
@@ -2716,7 +2764,7 @@ record ioNewline {
   /*
     Normally, we will skip anything at all to get to a \n,
     but if skipWhitespaceOnly is set, it will be an error
-    if we run into non-space charcters other than \n.
+    if we run into non-space characters other than \n.
    */
   var skipWhitespaceOnly: bool = false;
   pragma "no doc"
@@ -2896,7 +2944,7 @@ proc channel.offset():int(64) {
 proc channel.advance(amount:int(64), ref error:syserr) {
   on this.home {
     this.lock();
-    error = qio_channel_advance(false, _channel_internal);
+    error = qio_channel_advance(false, _channel_internal, amount);
     this.unlock();
   }
 }
@@ -2906,7 +2954,7 @@ pragma "no doc"
 proc channel.advance(amount:int(64)) {
   on this.home {
     this.lock();
-    var err = qio_channel_advance(false, _channel_internal);
+    var err = qio_channel_advance(false, _channel_internal, amount);
     if err then this._ch_ioerror(err, "in advance");
     this.unlock();
   }
@@ -2947,7 +2995,7 @@ inline proc channel._offset():int(64) {
       by a 'B')
     * if the speculative operation was successful,  commit the changes by
       calling :proc:`channel._commit`
-    * if the speculative operation was not succesful, go back to the *mark* by
+    * if the speculative operation was not successful, go back to the *mark* by
       calling :proc:`channel._revert`. Subsequent I/O operations will work
       as though nothing happened.
     * unlock the channel with :proc:`channel.unlock` if necessary
@@ -3409,7 +3457,7 @@ private proc _write_text_internal(_channel_internal:qio_channel_ptr_t, x:?t):sys
     // handle complex types
     var re = x.re;
     var im = x.im;
-    return qio_channel_print_complex(false, _channel_internal, re, im, numBytes(x.re.type));
+    return qio_channel_print_complex(false, _channel_internal, re, im, numBytes(re.type));
   } else if t == string {
     // handle string
     const local_x = x.localize();
@@ -3586,7 +3634,7 @@ private inline proc _read_one_internal(_channel_internal:qio_channel_ptr_t, para
                                     x.val.localize().c_str(),
                                     x.val.length: ssize_t, x.ignoreWhiteSpace);
     //e = qio_channel_scan_literal(false, _channel_internal, x.val, x.val.length, x.ignoreWhiteSpace);
-    //writeln("Scanning literal ", x.val,  " yeilded error ", e);
+    //writeln("Scanning literal ", x.val,  " yielded error ", e);
     //return e;
   } else if t == ioBits {
     return qio_channel_read_bits(false, _channel_internal, x.v, x.nbits);
@@ -3770,7 +3818,7 @@ inline proc channel.readwrite(ref x) where !this.writing {
   // these are overridden to not be inout
   // since they don't change when read anyway
   // and it's much more convenient to be able to do e.g.
-  //   reader & new ioLiteral("=")
+  //   reader <~> new ioLiteral("=")
 
   /* Overload to support reading an :type:`IO.ioLiteral` without
      passing ioLiterals by reference, so that
@@ -3793,7 +3841,7 @@ inline proc channel.readwrite(ref x) where !this.writing {
 
      .. code-block:: chapel
 
-       reader <~> new ioNewline("=")
+       reader <~> new ioNewline()
 
      works without requiring an explicit temporary value to store
      the ioNewline.
@@ -3919,6 +3967,46 @@ inline proc channel.read(ref args ...?k,
   return !error;
 }
 
+pragma "no doc"
+proc _can_stringify_direct(t) param : bool {
+  if (t.type == string ||
+      t.type == c_string ||
+      isRangeType(t.type) ||
+      isPrimitiveType(t.type)) {
+    return true;
+  } else if (isTupleType(t.type)) {
+    for param i in 1..t.size {
+      if !_can_stringify_direct(t[i]) then
+        return false;
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
+// This routine is called in DefaultRectangular in order
+// to report an out of bounds access for a halt. A normal
+// call to halt might not be possible because of module
+// order issues.
+pragma "no doc"
+proc _stringify_tuple(tup:?t) where isTuple(t)
+{
+  var str = "(";
+
+  for param i in 1..tup.size {
+    if i != 1 then str += ", ";
+    str += tup[i]:string;
+  }
+
+ str += ")";
+
+  return str;
+}
+
+// Note that stringify is called with primitive/range/tuple arguments
+// in modules that are loaded early. To avoid module ordering issues,
+// it supports such types directly.
 /*
     Creates a string representing the result of writing the arguments.
 
@@ -3926,21 +4014,7 @@ inline proc channel.read(ref args ...?k,
     to a string and returns the result.
   */
 proc stringify(args ...?k):string {
-  proc isStringOrPrimitiveTypes(type t) param : bool {
-    var x: t;
-    for param i in 1..k {
-      if !(x[i].type == string ||
-          x[i].type == c_string ||
-          x[i].type == c_string_copy) {
-        if !isPrimitiveType(x[i].type) then
-          return false;
-      }
-    }
-    return true;
-  }
-  param all_primitive = isStringOrPrimitiveTypes(args.type);
-
-  if all_primitive {
+  if _can_stringify_direct(args) {
     // As an optimization, use string concatenation for
     // all primitive type stringify...
     // This helps to work around some resolution errors
@@ -3952,9 +4026,12 @@ proc stringify(args ...?k):string {
       if args[i].type == string ||
          args[i].type == c_string ||
          args[i].type == c_string_copy {
-        str += args[i];
-      } else if isPrimitiveType(args[i].type) {
         str += args[i]:string;
+      } else if isRangeType(args[i].type) ||
+                isPrimitiveType(args[i].type) {
+        str += args[i]:string;
+      } else if isTupleType(args[i].type) {
+        str += _stringify_tuple(args[i]);
       }
     }
 
@@ -3995,7 +4072,7 @@ private var _arg_to_proto_names = ("a", "b", "c", "d", "e", "f");
 private proc _args_to_proto(args ...?k,
                     preArg:string) {
   // FIX ME: lot of potential leaking going on here with string concat
-  // But this is used for error handlling so maybe we don't care.
+  // But this is used for error handling so maybe we don't care.
   var err_args: string;
   for param i in 1..k {
     var name: string;
@@ -4038,7 +4115,7 @@ inline proc channel.read(ref args ...?k):bool {
    :arg error: optional argument to capture an error code. If this argument
               is not provided and an error is encountered, this function
               will halt with an error message.
-   :returns: `true` if the read succeded, and `false` on error or end of file.
+   :returns: `true` if the read succeeded, and `false` on error or end of file.
 
  */
 proc channel.read(ref args ...?k,
@@ -4079,7 +4156,7 @@ proc channel.read(ref args ...?k,
 
 // documented in the error= version
 pragma "no doc"
-proc channel.readline(arg: [] uint(8), out numRead : int, start = arg.domain.low, amount = arg.domain.high - start) : bool
+proc channel.readline(arg: [] uint(8), out numRead : int, start = arg.domain.low, amount = arg.domain.high - start + 1) : bool
 where arg.rank == 1 && isRectangularArr(arg)
 {
   var e:syserr = ENOERR;
@@ -4094,7 +4171,7 @@ where arg.rank == 1 && isRectangularArr(arg)
 
 /*
   Read a line into a Chapel array of bytes. Reads until a ``\n`` is reached.
-  The ``\n`` is consumed but not returned in the array.
+  The ``\n`` is returned in the array.
 
   :arg arg: A 1D DefaultRectangular array which must have at least 1 element.
   :arg numRead: The number of bytes read.
@@ -4105,20 +4182,20 @@ where arg.rank == 1 && isRectangularArr(arg)
               will halt with an error message.
   :returns: true if the bytes were read without error.
 */
-proc channel.readline(arg: [] uint(8), out numRead : int, start = arg.domain.low, amount = arg.domain.high - start, out error:syserr) : bool
+proc channel.readline(arg: [] uint(8), out numRead : int, start = arg.domain.low, amount = arg.domain.high - start + 1, out error:syserr) : bool
 where arg.rank == 1 && isRectangularArr(arg)
 {
   error = ENOERR;
 
   // Make sure the arguments are valid
-  if arg.size == 0 || !arg.domain.member(start) || amount <= 0 || (start + amount > arg.domain.high)  then return false;
+  if arg.size == 0 || !arg.domain.member(start) || amount <= 0 || (start + amount - 1 > arg.domain.high)  then return false;
 
   on this.home {
     this.lock();
     param newLineChar = 0x0A;
     var got : int;
     var i = start;
-    const maxIdx = start + amount;
+    const maxIdx = start + amount - 1;
     while i <= maxIdx {
       got = qio_channel_read_byte(false, this._channel_internal);
       arg[i] = got:uint(8);
@@ -4372,7 +4449,7 @@ proc channel.readln(ref args ...?k,
    :arg error: optional argument to capture an error code. If this argument
               is not provided and an error is encountered, this function
               will halt with an error message.
-   :returns: `true` if the read succeded, and `false` on error or end of file.
+   :returns: `true` if the read succeeded, and `false` on error or end of file.
 
  */
 proc channel.readln(ref args ...?k,
@@ -4515,7 +4592,7 @@ inline proc channel.write(args ...?k):bool {
    :arg error: optional argument to capture an error code. If this argument
               is not provided and an error is encountered, this function
               will halt with an error message.
-   :returns: `true` if the write succeded
+   :returns: `true` if the write succeeded
 
  */
 proc channel.write(args ...?k,
@@ -4601,7 +4678,7 @@ proc channel.writeln(args ...?k,
    :arg error: optional argument to capture an error code. If this argument
               is not provided and an error is encountered, this function
               will halt with an error message.
-   :returns: `true` if the write succeded
+   :returns: `true` if the write succeeded
 
  */
 proc channel.writeln(args ...?k,
@@ -5271,7 +5348,7 @@ proc channel._match_regexp_if_needed(cur:size_t, len:size_t, ref error:syserr, r
 // Reads the next format string that will require argument handling.
 // Handles literals and regexps itself; everything else will
 // be returned in conv and with gotConv = true.
-// Assumes, for a reading channel, that we are withn a mark/revert/commit
+// Assumes, for a reading channel, that we are within a mark/revert/commit
 //  in readf. (used in the regexp handling here).
 pragma "no doc"
 proc channel._format_reader(
@@ -6127,7 +6204,7 @@ proc channel.readf(fmtStr:string, ref args ...?k, out error:syserr):bool {
                 if _format_debug then stdout.writeln("DEBUG AXI");
               } else {
                 _match_regexp_if_needed(cur, len, error, style, r);
-                // Set args(i) to the catpure at capturei.
+                // Set args(i) to the capture at capturei.
                 if r.capturei >= r.ncaptures {
                   error = qio_format_error_bad_regexp();
                   if _format_debug then stdout.writeln("DEBUG AXJ");
@@ -6408,7 +6485,7 @@ proc string.format(args ...?k):string {
 
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
-// Starting support for regular expression serach on channels
+// Starting support for regular expression search on channels
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
 

@@ -23,11 +23,16 @@
 #ifndef LAUNCHER
 
 #include <stdint.h>
+#include "chplcgfns.h"
 #include "chpltypes.h"
 #include "chpl-tasks-prvdata.h"
 
 #ifdef CHPL_TASKS_MODEL_H
 #include CHPL_TASKS_MODEL_H
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 
@@ -144,15 +149,33 @@ void chpl_task_addToTaskList(
          c_nodeid_t,         // locale (node) where task list resides
          chpl_bool,          // is begin{} stmt?  (vs. cobegin or coforall)
          int,                // line at which function begins
-         int32_t);          // name of file containing functions
+         int32_t);           // name of file containing function
 void chpl_task_executeTasksInList(void**);
+
+//
+// Call a chpl_ftable[] function in a task.
+//
+// This is a convenience function for use by the module code, in which
+// we have function table indices rather than function pointers.
+//
+void chpl_task_taskCallFTable(chpl_fn_int_t fid,      // ftable[] entry to call
+                              void* arg,              // function arg
+                              size_t arg_size,        // length of arg
+                              c_sublocid_t subloc,    // desired sublocale
+                              int lineno,             // source line
+                              int32_t filename);      // source filename
+
+// In some cases, we are not worried about the "function number" (fid)
+
+#define FID_NONE -1
 
 //
 // Launch a task that is the logical continuation of some other task,
 // but on a different locale.  This is used to invoke the body of an
 // "on" statement.
 //
-void chpl_task_startMovedTask(chpl_fn_p,          // function to call
+void chpl_task_startMovedTask(chpl_fn_int_t fid,  // ftable[] entry 
+                              chpl_fn_p,          // function to call
                               void*,              // function arg
                               c_sublocid_t,       // desired sublocale
                               chpl_taskID_t,      // task identifier
@@ -315,13 +338,25 @@ size_t chpl_task_getDefaultCallStackSize(void);
 extern void chpl_taskRunningCntInc(int64_t _ln, int32_t _fn);
 extern void chpl_taskRunningCntDec(int64_t _ln, int32_t _fn);
 
+#ifdef __cplusplus
+} // end extern "C"
+#endif
+
 #include "chpl-tasks-callbacks.h"
 
 #else // LAUNCHER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void chpl_sync_aux_t;
 typedef chpl_sync_aux_t chpl_single_aux_t;
 #define chpl_task_exit()
+
+#ifdef __cplusplus
+} // end extern "C"
+#endif
 
 #endif // LAUNCHER
 

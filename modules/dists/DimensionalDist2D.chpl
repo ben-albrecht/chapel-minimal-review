@@ -105,7 +105,7 @@ the mapping is obtained using the dimension specifier:
 
 The following code declares a domain ``D`` distributed
 using a 2D Dimensional distribution that
-replicates over 2 locales (when available) in the first dimemsion
+replicates over 2 locales (when available) in the first dimension
 and distributes using block-cyclic distribution in the second dimension.
 
   .. code-block:: chapel
@@ -434,10 +434,10 @@ proc newDimensionalDist2D(
 // Check all restrictions/assumptions that must be satisfied by the user
 // when constructing a DimensionalDist2D.
 proc DimensionalDist2D.checkInvariants(): void {
-  proc ensure(param cond:bool, param msg:c_string) {
+  proc ensure(param cond:bool, param msg:string) {
     if !cond then compilerError(msg, 3);
   }
-  ensure(targetLocales.rank == 2, "DimensionalDist2D requires 'targetLocales' to be a 2-dimensional array, got " + targetLocales.rank:c_string + " dimension(s)");
+  ensure(targetLocales.rank == 2, "DimensionalDist2D requires 'targetLocales' to be a 2-dimensional array, got " + targetLocales.rank:string + " dimension(s)");
   ensure(rank == targetLocales.rank, "DimensionalDist2D bug: inconsistent rank");
   ensure(targetLocales.eltType == locale, "DimensionalDist2D requires 'targetLocales' to be an array of locales, got an array of " + targetLocales.eltType:string);
   ensure(targetIds.idxType == locIdT, "DimensionalDist2D currently requires 'idxType' of 'targetLocales.domain' to be " + locIdT:string + ", got " + targetIds.idxType:string);
@@ -481,7 +481,7 @@ proc DimensionalDist2D.dsiPrivatize(privatizeData) {
   _traceddd(this, ".dsiPrivatize on ", here.id);
 
   // ensure we get a local copy of targetLocales
-  // todo - provide the following as utilty functions (for domains, arrays)
+  // todo - provide the following as utility functions (for domains, arrays)
   const pdTargetLocales = privatizeData(1);
   const privTargetIds: domain(pdTargetLocales.domain.rank,
                               pdTargetLocales.domain.idxType,
@@ -545,7 +545,7 @@ proc DimensionalDist2D.dimSpecifier(param dim: int) {
     return di2;
   else
     compilerError("DimensionalDist2D presently supports dimSpecifier()",
-                  " only for dimension 1 or 2, got dim=", dim:c_string);
+                  " only for dimension 1 or 2, got dim=", dim:string);
 }
 
 
@@ -767,7 +767,7 @@ proc DimensionalDist2D.dsiNewRectangularDom(param rank: int,
            (rank, idxType:string, stridable));
   if rank != 2 then
     compilerError("DimensionalDist2D presently supports only 2 dimensions,",
-                  " got ", rank:c_string, " dimensions");
+                  " got ", rank:string, " dimensions");
 
   // todo: ideally, this will not be required;
   // furthermore, DimensionalDist2D shouldn't be specific to idxType.

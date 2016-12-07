@@ -45,8 +45,7 @@ symbolFlag( FLAG_ASSIGNOP, npr, "assignop", "this fn is assignment or an <op>= o
 symbolFlag( FLAG_ATOMIC_MODULE , ypr, "atomic module" , "module containing implementations of atomic types" )
 symbolFlag( FLAG_ATOMIC_TYPE , ypr, "atomic type" , "type that implements an atomic" )
 symbolFlag( FLAG_AUTO_COPY_FN,  ypr, "auto copy fn" , "auto copy function" )
-symbolFlag( FLAG_AUTO_DESTROY_FN,  npr, "auto destroy fn" , "auto destroy function" )
-symbolFlag( FLAG_AUTO_DESTROY_FN_SYNC, ypr, "auto destroy fn sync", "auto destroy function for sync/single" )
+symbolFlag( FLAG_AUTO_DESTROY_FN,  ypr, "auto destroy fn" , "auto destroy function" )
 symbolFlag( FLAG_AUTO_II , npr, "auto ii" , ncm )
 symbolFlag( FLAG_BASE_ARRAY , ypr, "base array" , ncm )
 symbolFlag( FLAG_BASE_DOMAIN , ypr, "base domain" , ncm )
@@ -66,6 +65,7 @@ symbolFlag( FLAG_COERCE_TEMP , npr, "coerce temp" , "a temporary that was stores
 symbolFlag( FLAG_CODEGENNED , npr, "codegenned" , "code has been generated for this type" )
 symbolFlag( FLAG_COFORALL_INDEX_VAR , npr, "coforall index var" , ncm )
 symbolFlag( FLAG_COMMAND_LINE_SETTING , ypr, "command line setting" , ncm )
+symbolFlag( FLAG_MODIFIES_ARRAY_BLK , ypr, "modifies array blk" , "marks functions that modify the array blk field" )
 // The compiler-generated flag is already overloaded in three ways.  We may
 // want to split it if this becomes cumbersome:
 // 1. In resolution, functions marked as compiler-generated are considered only if
@@ -79,9 +79,15 @@ symbolFlag( FLAG_COMPILER_NESTED_FUNCTION , npr, "compiler nested function" , nc
 symbolFlag( FLAG_CONCURRENTLY_ACCESSED , npr, "concurrently accessed" , "local variables accessed by multiple threads" )
 symbolFlag( FLAG_CONFIG , npr, "config" , "config variable, constant, or parameter" )
 symbolFlag( FLAG_CONST , npr, "const" , "constant" )
+// this shadow variable is constant, whereas the outer variable is not
+symbolFlag( FLAG_CONST_DUE_TO_TASK_FORALL_INTENT , npr, "const due to task or forall intent", ncm )
 symbolFlag( FLAG_C_PTR_CLASS , ypr, "c_ptr class" , "marks c_ptr class" )
 symbolFlag( FLAG_CONSTRUCTOR , npr, "constructor" , "constructor (but not type constructor); loosely defined to include constructor wrappers" )
 symbolFlag( FLAG_DATA_CLASS , ypr, "data class" , ncm )
+
+// Enable override for default-intent for types defined in terms of record/class
+symbolFlag( FLAG_DEFAULT_INTENT_IS_REF, ypr, "default intent is ref", "The default intent for this type is ref")
+
 symbolFlag( FLAG_DEFAULT_CONSTRUCTOR , npr, "default constructor" , ncm )
 symbolFlag( FLAG_DESTRUCTOR , npr, "destructor" , "applied to functions that are destructors" )
 symbolFlag( FLAG_DISTRIBUTION , ypr, "distribution" , ncm )
@@ -99,6 +105,7 @@ symbolFlag( FLAG_FAST_ON , npr, "fast on" , "with FLAG_ON/FLAG_ON_BLOCK, \"on bl
 symbolFlag( FLAG_FAST_ON_SAFE_EXTERN, ypr, "fast-on safe extern function", "extern function is safe for fast-on optimization")
 symbolFlag( FLAG_FIELD_ACCESSOR , npr, "field accessor" , "field setter/getter function, user-declared or compiler-generated" )
 symbolFlag( FLAG_FIRST_CLASS_FUNCTION_INVOCATION, npr, "first class function invocation" , "proxy for first-class function invocation" )
+symbolFlag( FLAG_FN_RETARG, npr, "fn returns via _retArg", ncm )
 symbolFlag( FLAG_FORMAL_TEMP,     npr, "formal temp", "a formal temp to back an in, out, or inout argument" )
 symbolFlag( FLAG_FUNCTION_CLASS , npr, "function class" , "first-class function class representation" )
 // When applied to an argument, this flag means that the arg accepts a value
@@ -123,6 +130,7 @@ symbolFlag( FLAG_INSERT_AUTO_DESTROY , ypr, "insert auto destroy" , ncm )
 symbolFlag( FLAG_INSERT_AUTO_DESTROY_FOR_EXPLICIT_NEW , npr, "insert auto destroy for explicit new" , ncm )
 symbolFlag( FLAG_INSERT_LINE_FILE_INFO , ypr, "insert line file info" , ncm )
 symbolFlag( FLAG_INSTANTIATED_PARAM , npr, "instantiated param" , "this formal is bound to a param" )
+symbolFlag( FLAG_INSTANTIATED_GENERIC , npr, "instantiated generic" , "this is an instantiation of a generic" )
 symbolFlag( FLAG_INVISIBLE_FN , npr, "invisible fn" , "invisible function (not a candidate for resolution)" )
 symbolFlag( FLAG_IS_MEME , npr, "is meme" , ncm )
 symbolFlag( FLAG_ITERATOR_CLASS , npr, "iterator class" , ncm )
@@ -229,9 +237,11 @@ symbolFlag( FLAG_REF_ITERATOR_CLASS , npr, "ref iterator class" , ncm )
 symbolFlag( FLAG_REF_TO_CONST , npr, "reference to a const" , "a temp or a function that returns a reference to a Chapel const, e.g. an accessor to a const field or its result" )
 symbolFlag( FLAG_REF_TO_CONST_WHEN_CONST_THIS , ypr, "reference to const when const this" , "a function that returns a reference to a Chapel const when 'this' is const" )
 symbolFlag( FLAG_REF_VAR , ypr, "ref var" , "reference variable" )
+symbolFlag( FLAG_REMOVABLE_ARRAY_ACCESS, ypr, "removable array access", "array access calls that can be replaced with a reference")
 symbolFlag( FLAG_REMOVABLE_AUTO_COPY , ypr, "removable auto copy" , ncm )
 symbolFlag( FLAG_REMOVABLE_AUTO_DESTROY , ypr, "removable auto destroy" , ncm )
 symbolFlag( FLAG_RESOLVED , npr, "resolved" , "this function has been resolved" )
+symbolFlag( FLAG_RETARG, npr, "symbol is a _retArg", ncm )
 // See buildRuntimeTypeToValueFns() in functionResolution.cpp for more info on FLAG_RUNTIME_TYPE_INIT_FN
 symbolFlag( FLAG_RUNTIME_TYPE_INIT_FN , ypr, "runtime type init fn" , "function for initializing runtime time types" )
 symbolFlag( FLAG_RUNTIME_TYPE_VALUE , npr, "runtime type value" , "associated runtime type (value)" )
@@ -242,6 +252,7 @@ symbolFlag( FLAG_SINGLE , ypr, "single" , ncm )
 symbolFlag( FLAG_SPECIFIED_RETURN_TYPE , npr, "specified return type" , ncm )
 symbolFlag( FLAG_STAR_TUPLE , npr, "star tuple" , "mark tuple types as star tuple types" )
 symbolFlag( FLAG_SUPER_CLASS , npr, "super class" , ncm )
+symbolFlag( FLAG_SUPER_TEMP, npr, "temporary of super field", ncm)
 symbolFlag( FLAG_SUPPRESS_LVALUE_ERRORS , ypr, "suppress lvalue error" , "do not report an lvalue error if it occurs in a function with this flag" )
 symbolFlag( FLAG_SYNC , ypr, "sync" , ncm )
 symbolFlag( FLAG_SYNTACTIC_DISTRIBUTION , ypr, "syntactic distribution" , ncm )
@@ -258,6 +269,8 @@ symbolFlag( FLAG_WAS_COMPILER_GENERATED, npr, "was compiler generated", "used to
 symbolFlag( FLAG_WIDE_REF , npr, "wide" , ncm )
 symbolFlag( FLAG_WIDE_CLASS , npr, "wide class" , ncm )
 symbolFlag( FLAG_WRAPPER , npr, "wrapper" , "wrapper function" )
+symbolFlag( FLAG_WRAPPER_NEEDS_START_FENCE , npr, "wrapper needs start fence" , "add PRIM_START_RMEM_FENCE to the start of the wrapper function" )
+symbolFlag( FLAG_WRAPPER_NEEDS_FINISH_FENCE , npr, "wrapper needs finish fence" , "add PRIM_FINISH_RMEM_FENCE to the end of the wrapper function" )
 symbolFlag( FLAG_WRAP_WRITTEN_FORMAL , npr, "wrap written formal" , "formal argument for wrapper for out/inout intent" )
 
 #undef ypr

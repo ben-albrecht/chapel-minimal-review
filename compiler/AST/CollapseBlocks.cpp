@@ -188,7 +188,7 @@ bool CollapseBlocks::enterCondStmt(CondStmt* node)
 
 /************************************ | *************************************
 *                                                                           *
-* The remaining definitions are simple "default do nothing" defintions      *
+* The remaining definitions are simple "default do nothing" definitions      *
 *                                                                           *
 ************************************* | ************************************/
 
@@ -278,6 +278,15 @@ bool CollapseBlocks::enterCallExpr(CallExpr* node)
 }
 
 void CollapseBlocks::exitCallExpr(CallExpr* node)
+{
+}
+
+bool CollapseBlocks::enterContextCallExpr(ContextCallExpr* node)
+{
+  return false;
+}
+
+void CollapseBlocks::exitContextCallExpr(ContextCallExpr* node)
 {
 }
 

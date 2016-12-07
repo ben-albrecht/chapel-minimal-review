@@ -152,7 +152,7 @@ module LocaleModel {
       if doneCreatingLocales {
         halt("Cannot create additional LocaleModel instances");
       }
-      init();
+      setup();
     }
 
     proc LocaleModel(parent_loc : locale) {
@@ -160,7 +160,7 @@ module LocaleModel {
         halt("Cannot create additional LocaleModel instances");
       }
       parent = parent_loc;
-      init();
+      setup();
     }
 
     proc chpl_id() return _node_id;     // top-level locale (node) number
@@ -205,20 +205,20 @@ module LocaleModel {
     //------------------------------------------------------------------------{
     //- Implementation (private)
     //-
-    proc init() {
+    proc setup() {
       _node_id = chpl_nodeID: int;
 
       // chpl_nodeName is defined in chplsys.c.
       // It supplies a node name obtained by running uname(3) on the
       // current node.  For this reason (as well), the constructor (or
-      // at least this init method) must be run on the node it is
+      // at least this setup method) must be run on the node it is
       // intended to describe.
       var comm, spawnfn : c_string;
       extern proc chpl_nodeName() : c_string;
       // sys_getenv returns zero on success.
       if sys_getenv(c"CHPL_COMM", comm) == 0 && comm == c"gasnet" &&
         sys_getenv(c"GASNET_SPAWNFN", spawnfn) == 0 && spawnfn == c"L"
-      then local_name = chpl_nodeName() + "-" + _node_id : string;
+      then local_name = chpl_nodeName():string + "-" + _node_id:string;
       else local_name = chpl_nodeName():string;
 
       extern proc chpl_task_getCallStackSize(): size_t;
@@ -287,10 +287,10 @@ module LocaleModel {
       maxTaskPar = 0;
     }
 
-    // The init() function must use chpl_initOnLocales() to iterate (in
+    // The setup() function must use chpl_initOnLocales() to iterate (in
     // parallel) over the locales to set up the LocaleModel object.
     // In addition, the initial 'here' must be set.
-    proc init() {
+    proc setup() {
       forall locIdx in chpl_initOnLocales() {
         chpl_task_setSubloc(c_sublocid_any);
         const node = new LocaleModel(this);
@@ -368,32 +368,47 @@ module LocaleModel {
   private extern proc chpl_memhook_md_num(): chpl_mem_descInt_t;
 
   // The allocator pragma is used by scalar replacement.
+
+  // Note that there are 2 nearly identical chpl_here_alloc() functions. This
+  // one takes an int(64) size and is marked with "locale model alloc" while
+  // the second version takes a generic `integral` size and is not marked
+  // "locale model alloc". Calls to the "locale model alloc" version are
+  // inserted by the compiler (sometimes after resolution) for class/record
+  // allocations. As a result, there can only be a single function with "locale
+  // model alloc" in any compilation and the function must be fully specified.
   pragma "allocator"
   pragma "locale model alloc"
-  proc chpl_here_alloc(size:int, md:chpl_mem_descInt_t): c_void_ptr {
+  proc chpl_here_alloc(size:int(64), md:chpl_mem_descInt_t): c_void_ptr {
     pragma "insert line file info"
       extern proc chpl_mem_alloc(size:size_t, md:chpl_mem_descInt_t) : c_void_ptr;
     return chpl_mem_alloc(size.safeCast(size_t), md + chpl_memhook_md_num());
   }
 
   pragma "allocator"
-  proc chpl_here_calloc(size:int, number:int, md:chpl_mem_descInt_t): c_void_ptr {
+  proc chpl_here_alloc(size:integral, md:chpl_mem_descInt_t): c_void_ptr {
+    pragma "insert line file info"
+      extern proc chpl_mem_alloc(size:size_t, md:chpl_mem_descInt_t) : c_void_ptr;
+    return chpl_mem_alloc(size.safeCast(size_t), md + chpl_memhook_md_num());
+  }
+
+  pragma "allocator"
+  proc chpl_here_calloc(size:integral, number:integral, md:chpl_mem_descInt_t): c_void_ptr {
     pragma "insert line file info"
       extern proc chpl_mem_calloc(number:size_t, size:size_t, md:chpl_mem_descInt_t) : c_void_ptr;
     return chpl_mem_calloc(number.safeCast(size_t), size.safeCast(size_t), md + chpl_memhook_md_num());
   }
 
   pragma "allocator"
-  proc chpl_here_realloc(ptr:c_void_ptr, size:int, md:chpl_mem_descInt_t): c_void_ptr {
+  proc chpl_here_realloc(ptr:c_void_ptr, size:integral, md:chpl_mem_descInt_t): c_void_ptr {
     pragma "insert line file info"
       extern proc chpl_mem_realloc(ptr:c_void_ptr, size:size_t, md:chpl_mem_descInt_t) : c_void_ptr;
     return chpl_mem_realloc(ptr, size.safeCast(size_t), md + chpl_memhook_md_num());
   }
 
-  proc chpl_here_good_alloc_size(min_size:int): int {
+  proc chpl_here_good_alloc_size(min_size:integral): min_size.type {
     pragma "insert line file info"
       extern proc chpl_mem_good_alloc_size(min_size:size_t) : size_t;
-    return chpl_mem_good_alloc_size(min_size.safeCast(size_t)).safeCast(int);
+    return chpl_mem_good_alloc_size(min_size.safeCast(size_t)).safeCast(min_size.type);
   }
 
   pragma "locale model free"
@@ -417,8 +432,41 @@ module LocaleModel {
                                         args: c_void_ptr, args_size: size_t);
   extern proc chpl_comm_execute_on_nb(loc_id: int, subloc_id: int, fn: int,
                                       args: c_void_ptr, args_size: size_t);
+  pragma "insert line file info"
+    extern proc chpl_task_taskCallFTable(fn: int,
+                                         args: c_void_ptr, args_size: size_t,
+                                         subloc_id: int): void;
   extern proc chpl_ftable_call(fn: int, args: c_void_ptr): void;
   extern proc chpl_task_setSubloc(subloc: int(32));
+
+  //
+  // returns true if an executeOn can be handled directly
+  // by running the function in question.
+  // Applies to execute on and execute on fast.
+  // When performing a blocking on, the compiler will emit this sequence:
+  //
+  //  if (chpl_doDirectExecuteOn(targetLocale))
+  //         onStatementBodyFunction( args ... );
+  //  else
+  //         chpl_executeOn / chpl_executeOnFast
+  //
+  export
+  proc chpl_doDirectExecuteOn(loc: chpl_localeID_t // target locale
+                             ):bool {
+    const dnode =  chpl_nodeFromLocaleID(loc);
+    const dsubloc =  chpl_sublocFromLocaleID(loc);
+
+    if (dnode != chpl_nodeID) {
+      return false; // need to move to different node
+    } else {
+      var origSubloc = chpl_task_getRequestedSubloc();
+      if (dsubloc==c_sublocid_any || dsubloc==origSubloc) {
+        return true;
+      } else {
+        return false; // need to move to different sublocale
+      }
+    }
+  }
 
   //
   // regular "on"
@@ -476,19 +524,9 @@ module LocaleModel {
     }
   }
 
-  // Unused for now due to bug when using 'begin'
-  inline proc chpl_executeOnNBAux(fn: int,         // on-body function idx
-                                  args: c_void_ptr // function args
-                                  ) {
-    if __primitive("task_get_serial") then
-      chpl_ftable_call(fn, args);
-    else
-      begin chpl_ftable_call(fn, args);
-  }
   //
   // nonblocking "on" (doesn't wait for completion)
   //
-  param useBegin = false;
   pragma "insert line file info"
   export
   proc chpl_executeOnNB(loc: chpl_localeID_t, // target locale
@@ -502,40 +540,16 @@ module LocaleModel {
     //
     const dnode =  chpl_nodeFromLocaleID(loc);
     const dsubloc =  chpl_sublocFromLocaleID(loc);
-    if dnode != chpl_nodeID {
+    if dnode == chpl_nodeID {
+      if __primitive("task_get_serial") then
+        chpl_ftable_call(fn, args);
+      else
+        chpl_task_taskCallFTable(fn, args, args_size, dsubloc);
+    } else {
       if __primitive("task_get_serial") then
         chpl_comm_execute_on(dnode, dsubloc, fn, args, args_size);
       else
         chpl_comm_execute_on_nb(dnode, dsubloc, fn, args, args_size);
-    } else {
-      var origSubloc = chpl_task_getRequestedSubloc();
-      // We'd like to call chpl_executeOnNBaux() here, but the begin
-      //  statement seems to cause a problem
-      if (dsubloc==c_sublocid_any || dsubloc==origSubloc) {
-        // run on this sublocale
-        if useBegin {
-          chpl_executeOnNBAux(fn, args);
-        } else {
-          if __primitive("task_get_serial") then
-            chpl_ftable_call(fn, args);
-          else
-            // begin chpl_ftable_call(fn, args);
-            chpl_comm_execute_on_nb(dnode, dsubloc, fn, args, args_size);
-        }
-      } else {
-        // move to a different sublocale
-        chpl_task_setSubloc(dsubloc);
-        if useBegin {
-          chpl_executeOnNBAux(fn, args);
-        } else {
-          if __primitive("task_get_serial") then
-            chpl_ftable_call(fn, args);
-          else
-            // begin chpl_ftable_call(fn, args);
-            chpl_comm_execute_on_nb(dnode, dsubloc, fn, args, args_size);
-        }
-        chpl_task_setSubloc(origSubloc);
-      }
     }
   }
 

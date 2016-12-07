@@ -984,6 +984,7 @@ qioerr qio_channel_write_string(const int threadsafe, const int byteorder, const
       break;
     case QIO_BINARY_STRING_STYLE_TOEOF:
       // Just don't worry about the length - write len bytes.
+      break;
     default:
       if( str_style >= 0 ) {
         // MPF - perhaps we should allow writing a string
@@ -1333,7 +1334,7 @@ qioerr qio_quote_string_length(uint8_t string_start, uint8_t string_end, uint8_t
   ssize_t safe_quoted_bytes = 0;
   ssize_t safe_quoted_chars = 0;
   ssize_t safe_quoted_cols = 0;
-  int elipses_size;
+  int ellipses_size;
   int end_quote_size;
   int start_quote_size;
   int clen = 1;
@@ -1347,11 +1348,11 @@ qioerr qio_quote_string_length(uint8_t string_start, uint8_t string_end, uint8_t
   // write the string itself, possible with some escape-handling.
   if( string_format == QIO_STRING_FORMAT_WORD ||
       string_format == QIO_STRING_FORMAT_TOEND ) {
-    elipses_size = 0;
+    ellipses_size = 0;
     end_quote_size = 0;
     start_quote_size = 0;
   } else {
-    elipses_size = 3; // ie ...
+    ellipses_size = 3; // ie ...
     end_quote_size = 1; // ie a double quote
     start_quote_size = 1;
     // Smallest pattern is ""...
@@ -1378,9 +1379,9 @@ qioerr qio_quote_string_length(uint8_t string_start, uint8_t string_end, uint8_t
       QIO_GET_CONSTANT_ERROR(err, EILSEQ, "");
       goto error;
     }
-    if( quoted_bytes + elipses_size + end_quote_size <= max_bytes &&
-        quoted_chars + elipses_size + end_quote_size <= max_chars &&
-        quoted_cols + elipses_size + end_quote_size <= max_cols) {
+    if( quoted_bytes + ellipses_size + end_quote_size <= max_bytes &&
+        quoted_chars + ellipses_size + end_quote_size <= max_chars &&
+        quoted_cols + ellipses_size + end_quote_size <= max_cols) {
       safe_i = i;
       safe_quoted_bytes = quoted_bytes;
       safe_quoted_chars = quoted_chars;
@@ -1400,7 +1401,7 @@ qioerr qio_quote_string_length(uint8_t string_start, uint8_t string_end, uint8_t
 
   if( overfull ) {
     i = safe_i;
-    // and add end quote and elipses.
+    // and add end quote and ellipses.
     quoted_bytes = safe_quoted_bytes;
     quoted_chars = safe_quoted_chars;
     quoted_cols = safe_quoted_cols;
@@ -1412,10 +1413,10 @@ qioerr qio_quote_string_length(uint8_t string_start, uint8_t string_end, uint8_t
   quoted_cols += end_quote_size;
 
   if( overfull ) {
-    // Account for the elipses
-    quoted_bytes += elipses_size;
-    quoted_chars += elipses_size;
-    quoted_cols += elipses_size;
+    // Account for the ellipses
+    quoted_bytes += ellipses_size;
+    quoted_chars += ellipses_size;
+    quoted_cols += ellipses_size;
   }
 
   if( ti ) {
@@ -1756,7 +1757,7 @@ int32_t qio_skip_json_string_unlocked(qio_channel_t* restrict ch)
   }
 }
 
-// Read and skip an abitrary JSON field, not counting a following ,
+// Read and skip an arbitrary JSON field, not counting a following ,
 // Returns the last character read, or
 // negative for a negative error code.
 int32_t qio_skip_json_field_unlocked(qio_channel_t* restrict ch)
@@ -1860,7 +1861,7 @@ unlock:
 // Always do case insensitive reading; the characters here should be
 // lower case.
 typedef struct number_reading_state_s {
-  int base; // 0 means 0b 0x supported; othewise particular base 2,10,16
+  int base; // 0 means 0b 0x supported; otherwise particular base 2,10,16
 
   char allow_base; // allow 0b or 0x when base == 2 or == 16 respectively
                    // (these are always allowed when base == 0)
@@ -2847,7 +2848,7 @@ int _ftoa(char* restrict dst, size_t size, double num, int base, bool needs_i, c
 
       needspoint = 1;
       if( got < size ) {
-        // If we have suceeded at putting the number in dst,
+        // If we have succeeded at putting the number in dst,
         // go about figuring out if we need to add .0
         // If not - we will assume we need it for the purpose
         // of reserving temporary space.
@@ -2931,7 +2932,7 @@ int _ftoa(char* restrict dst, size_t size, double num, int base, bool needs_i, c
     if( showbase ) {
       dst[got++] = '0';
       if( base == 16 ) dst[got++] = style->uppercase?'X':'x';
-      else return -2; //unspported floating point base.
+      else return -2; //unsupported floating point base.
     }
 
     // 0 padding goes after the sign
@@ -3058,7 +3059,7 @@ qioerr qio_channel_print_int(const int threadsafe, qio_channel_t* restrict ch, c
     char* tmp = NULL;
     char tmp_onstack[MAX_ON_STACK];
 
-    // Store it in a tempory variable and then
+    // Store it in a temporary variable and then
     // copy that in to the buffer.
     MAYBE_STACK_ALLOC(char, max, tmp, tmp_onstack);
     if( ! tmp ) {
@@ -3165,7 +3166,7 @@ qioerr qio_channel_print_float_or_imag(const int threadsafe, qio_channel_t* rest
     char* buf = NULL;
     char buf_onstack[MAX_ON_STACK];
 
-    // Store it in a tempory variable and then
+    // Store it in a temporary variable and then
     // copy that in to the buffer.
     MAYBE_STACK_ALLOC(char, max, buf, buf_onstack);
     if( ! buf ) {
@@ -4276,7 +4277,7 @@ qioerr qio_conv_parse(c_string fmt,
           }
         }
 
-        // s conversions without follwing encoding type must have a width.
+        // s conversions without following encoding type must have a width.
         if( type == 's' && width == WIDTH_NOT_SET ) {
           QIO_GET_CONSTANT_ERROR(err, EINVAL, "Binary s conversion must have a width");
           goto done;

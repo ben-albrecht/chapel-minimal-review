@@ -89,8 +89,8 @@ module Random {
   /* The default RNG. The current default is PCG - see :mod:`PCGRandom`. */
   param defaultRNG = RNG.PCG;
 
-  // CHPLDOC FEEDBACK: If easy, I'd suggest either deprecating the 
-  // :arg <type> <name>: form or else switching the order to 
+  // CHPLDOC FEEDBACK: If easy, I'd suggest either deprecating the
+  // :arg <type> <name>: form or else switching the order to
   // :arg <name> <type>: as it's an easy trap to simply type the same
   // argument as in the function's signature.
 
@@ -419,7 +419,7 @@ module Random {
 
 
   /*
-     Permuted Linear Congurential Random Number Generator
+     Permuted Linear Congruential Random Number Generator
 
      This module provides PCG random number generation routines.
      See http://www.pcg-random.org/
@@ -495,7 +495,7 @@ module Random {
       is computed will be computed with a different ganged-together RNG.
       This strategy is meant to avoid statistical bias. While we have tested
       this strategy to our satisfaction, it has not been subject to rigorous
-      analysis and may have undesireable statistical properties.
+      analysis and may have undesirable statistical properties.
 
       When generating a real, imaginary, or complex number, this implementation
       uses the strategy of generating a 64-bit unsigned integer and then
@@ -582,20 +582,6 @@ module Random {
         PCGRandomStreamPrivate_count = 1;
       }
 
-      //
-      // NOAKES: 2016/04/21
-      //
-      // syncs are currently implemented as bare classes and so require a delete to be reclaimed
-      //
-      // We do not want to update application code but have agreed to update the randomStream
-      // classes to reduce leak noise until the implementation can be revised
-      //
-
-      pragma "no doc"
-      proc ~RandomStream() {
-        delete PCGRandomStreamPrivate_lock$;
-      }
-
       pragma "no doc"
       proc PCGRandomStreamPrivate_getNext_noLock(type resultType=eltType) {
         PCGRandomStreamPrivate_count += 1;
@@ -619,7 +605,7 @@ module Random {
         Returns the next value in the random stream.
 
         Generated reals are in [0,1] - both 0.0 and 1.0 are possible values.
-        Imaginary numbers are analagously in [0i, 1i]. Complex numbers will
+        Imaginary numbers are analogously in [0i, 1i]. Complex numbers will
         consist of a generated real and imaginary part, so 0.0+0.0i and 1.0+1.0i
         are possible.
 
@@ -694,7 +680,7 @@ module Random {
       */
 
       proc getNth(n: integral): eltType {
-        if (n <= 0) then 
+        if (n <= 0) then
           halt("PCGRandomStream.getNth(n) called with non-positive 'n' value", n);
         if parSafe then
           PCGRandomStreamPrivate_lock$ = true;
@@ -720,33 +706,50 @@ module Random {
           x = r;
       }
 
-      /* Randomly shuffle a 1-D non-strided array.
-         */
-      proc shuffle(arr: []) {
-        var low = arr.domain.dim(1).low;
-        var high = arr.domain.dim(1).high;
+      /* Randomly shuffle a 1-D array. */
+      proc shuffle(arr: [?D] ?eltType ) {
 
-        if arr.domain.rank != 1 then
+        if D.rank != 1 then
           compilerError("Shuffle requires 1-D array");
-        //if arr.domain.type.strideable then
-        //  compilerError("Shuffle requires non-strideable 1-D array");
+
+        const low = D.low,
+              high = D.high,
+              stride = D.stride;
 
         if parSafe then
           PCGRandomStreamPrivate_lock$ = true;
 
-        for j in low+1..high by -1 {
-          var k = randlc_bounded(arr.domain.idxType,
+        // Fisher-Yates shuffle
+        for i in 0..#D.size by -1 {
+          var k = randlc_bounded(D.idxType,
                                  PCGRandomStreamPrivate_rngs,
                                  seed, PCGRandomStreamPrivate_count,
-                                 low, j);
+                                 0, i);
+
+          var j = i;
+
+          // Strided case
+          if stride > 1 {
+            k *= stride;
+            j *= stride;
+          } else if stride < 0 {
+            k *= -stride;
+            j *= -stride;
+          }
+
+          // Alignment offsets
+          k += low;
+          j += low;
+
           arr[k] <=> arr[j];
         }
 
-        PCGRandomStreamPrivate_count += high-low;
+        PCGRandomStreamPrivate_count += high - low;
 
         if parSafe then
           PCGRandomStreamPrivate_lock$;
       }
+
       /* Produce a random permutation, storing it in a 1-D array.
          The resulting array will include each value from low..high
          exactly once, where low and high refer to the array's domain.
@@ -757,8 +760,8 @@ module Random {
 
         if arr.domain.rank != 1 then
           compilerError("Permutation requires 1-D array");
-        //if arr.domain.dim(1).strideable then
-        //  compilerError("Permutation requires non-strideable 1-D array");
+        //if arr.domain.dim(1).stridable then
+        //  compilerError("Permutation requires non-stridable 1-D array");
 
         if parSafe then
           PCGRandomStreamPrivate_lock$ = true;
@@ -781,7 +784,7 @@ module Random {
 
       pragma "no doc"
       proc fillRandom(arr: []) {
-        compilerError("PCGRandomStream(eltType=", eltType:string, 
+        compilerError("PCGRandomStream(eltType=", eltType:string,
                       ") can only be used to fill arrays of ", eltType:string);
       }
 
@@ -832,7 +835,7 @@ module Random {
 
       pragma "no doc"
       var PCGRandomStreamPrivate_lock$: sync bool;
-      // up to 4 RNGs 
+      // up to 4 RNGs
       pragma "no doc"
       var PCGRandomStreamPrivate_rngs: numGenerators(eltType) * pcg_setseq_64_xsh_rr_32_rng;
       pragma "no doc"
@@ -941,7 +944,7 @@ module Random {
       if bound > max(uint(32)):uint {
         var toprand = 0:uint;
         var botrand = 0:uint;
-        
+
         // compute the bounded number in two calls to a 32-bit RNG
         toprand = boundedrand32_1(states, seed, count, (bound >> 32):uint(32));
         botrand = boundedrand32_2(states, seed, count, (bound & max(uint(32))):uint(32));
@@ -1182,7 +1185,7 @@ module Random {
 
    */
   module PCGRandomLib {
-    
+
     // Translated from PCG-C-basic-0.9
     // Keeping the same function names in order to simplify maintenance
     // These functions correspond to pcg32_random_r in that version.
@@ -1366,7 +1369,7 @@ module Random {
         var tmpinc:uint(64);
         var r:uint(32);
 
-        // Keepy trying until we get a random number that is within the bounds.
+        // Keep trying until we get a random number that is within the bounds.
         while true {
           r = random(inc);
           if r >= threshold then
@@ -1779,7 +1782,7 @@ module Random {
         var shiftamt = nbits - 4;
         var state = state_in:uint;
         var word:uint = ((state >> ((state >> shiftamt) + 2)) ^ state) * 217;
-        word = normalize(nbits, word); 
+        word = normalize(nbits, word);
         return (word >> shiftamt) ^ word;
       }
     }
@@ -2066,19 +2069,6 @@ module Random {
         }
       }
 
-      //
-      // NOAKES: 2016/04/21
-      //
-      // syncs are currently implemented as bare classes and so require a delete to be reclaimed
-      //
-      // We do not want to update application code but have agreed to update the randomStream
-      // classes to reduce leak noise until the implementation can be revised
-      //
-      pragma "no doc"
-      proc ~NPBRandomStream() {
-        delete NPBRandomStreamPrivate_lock$;
-      }
-
       pragma "no doc"
       proc NPBRandomStreamPrivate_getNext_noLock() {
         if (eltType == complex) {
@@ -2142,7 +2132,7 @@ module Random {
       */
 
       proc getNth(n: integral): eltType {
-        if (n <= 0) then 
+        if (n <= 0) then
           halt("NPBRandomStream.getNth(n) called with non-positive 'n' value", n);
         if parSafe then
           NPBRandomStreamPrivate_lock$ = true;
@@ -2170,7 +2160,7 @@ module Random {
 
       pragma "no doc"
       proc fillRandom(arr: []) {
-        compilerError("NPBRandomStream(eltType=", eltType:string, 
+        compilerError("NPBRandomStream(eltType=", eltType:string,
                       ") can only be used to fill arrays of ", eltType:string);
       }
 

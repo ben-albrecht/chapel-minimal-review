@@ -28,7 +28,7 @@
 //   LocBlockArr : local array class (per-locale instances)
 //
 // When a distribution, domain, or array class instance is created, a
-// correponding local class instance is created on each locale that is
+// corresponding local class instance is created on each locale that is
 // mapped to by the distribution.
 //
 
@@ -41,7 +41,8 @@
 use DSIUtil;
 use ChapelUtil;
 use CommDiagnostics;
-
+use SparseBlockDist;
+use LayoutCSR;
 //
 // These flags are used to output debug information and run extra
 // checks when using Block.  Should these be promoted so that they can
@@ -212,7 +213,8 @@ The ``Block`` class constructor is defined as follows:
       dataParIgnoreRunningTasks = // value of  dataParIgnoreRunningTasks  config const,
       dataParMinGranularity     = // value of  dataParMinGranularity      config const,
       param rank                = boundingBox.rank,
-      type  idxType             = boundingBox.idxType)
+      type  idxType             = boundingBox.idxType,
+      type  sparseLayoutType    = DefaultDist)
 
 The arguments ``boundingBox`` (a domain) and ``targetLocales`` (an array)
 define the mapping of any index of ``idxType`` type to a locale
@@ -231,11 +233,15 @@ and arrays in the same way that the like-named config constants
 control data parallelism for ranges and default-distributed domains
 and arrays.
 
-The ``rank`` and ``idxType`` arguments are inferred from the
-``boundingBox`` argument unless explicitly set.
-They must match the rank and index type of the domains
-"dmapped" using that Block instance.
+The ``rank`` and ``idxType`` arguments are inferred from the ``boundingBox``
+argument unless explicitly set.  They must match the rank and index type of the
+domains "dmapped" using that Block instance. If the ``boundingBox`` argument is
+a stridable domain, the stride information will be ignored and the
+``boundingBox`` will only use the lo..hi bounds.
 
+When a ``sparse subdomain`` is created for a ``Block`` distributed domain, the
+``sparseLayoutType`` will be the layout of these sparse domains. The default is
+currently coordinate, but :class:`LayoutCSR.CSR` is an interesting alternative.
 
 **Data-Parallel Iteration**
 
@@ -248,6 +254,52 @@ Parallelism within each locale is guided by the values of
 ``dataParMinGranularity`` of the respective Block instance.
 Updates to these values, if any, take effect only on the locale
 where the updates are made.
+
+**Sparse Subdomains**
+
+When a ``sparse subdomain`` is declared as a subdomain to a Block-distributed
+domain, the resulting sparse domain will also be Block-distributed. The
+sparse layout used in this sparse subdomain can be controlled with the
+``sparseLayoutType`` constructor argument to Block.
+
+This example demonstrates a Block-distributed sparse domain and array:
+
+  .. code-block:: chapel
+
+   use BlockDist;
+
+    const Space = {1..8, 1..8};
+
+    // Declare a dense, Block-distributed domain.
+    const DenseDom: domain(2) dmapped Block(boundingBox=Space) = Space;
+
+    // Declare a sparse subdomain.
+    // Since DenseDom is Block-distributed, SparseDom will be as well.
+    var SparseDom: sparse subdomain(DenseDom);
+
+    // Add some elements to the sparse subdomain.
+    // SparseDom.bulkAdd is another way to do this that allows more control.
+    SparseDom += [ (1,2), (3,6), (5,4), (7,8) ];
+
+    // Declare a sparse array.
+    // This array is also Block-distributed.
+    var A: [SparseDom] int;
+
+    A = 1;
+
+    writeln( "A[(1, 1)] = ", A[1,1]);
+    for (ij,x) in zip(SparseDom, A) {
+      writeln( "A[", ij, "] = ", x, " on locale ", x.locale);
+    }
+
+   // Results in this output when run on 4 locales:
+   // A[(1, 1)] = 0
+   // A[(1, 2)] = 1 on locale LOCALE0
+   // A[(3, 6)] = 1 on locale LOCALE1
+   // A[(5, 4)] = 1 on locale LOCALE2
+   // A[(7, 8)] = 1 on locale LOCALE3
+
+
 */
 class Block : BaseDist {
   param rank: int;
@@ -259,6 +311,7 @@ class Block : BaseDist {
   var dataParTasksPerLocale: int;
   var dataParIgnoreRunningTasks: bool;
   var dataParMinGranularity: int;
+  type sparseLayoutType = DefaultDist;
   var pid: int = -1; // privatized object id (this should be factored out)
 }
 
@@ -289,7 +342,8 @@ class BlockDom: BaseRectangularDom {
   param rank: int;
   type idxType;
   param stridable: bool;
-  const dist: Block(rank, idxType);
+  type sparseLayoutType;
+  const dist: Block(rank, idxType, sparseLayoutType);
   var locDoms: [dist.targetLocDom] LocBlockDom(rank, idxType, stridable);
   var whole: domain(rank=rank, idxType=idxType, stridable=stridable);
   var pid: int = -1; // privatized object id (this should be factored out)
@@ -326,8 +380,9 @@ class BlockArr: BaseArr {
   param rank: int;
   type idxType;
   param stridable: bool;
+  type sparseLayoutType;
   var doRADOpt: bool = defaultDoRADOpt;
-  var dom: BlockDom(rank, idxType, stridable);
+  var dom: BlockDom(rank, idxType, stridable, sparseLayoutType);
   var locArr: [dom.dist.targetLocDom] LocBlockArr(eltType, rank, idxType, stridable);
   var myLocArr: LocBlockArr(eltType, rank, idxType, stridable);
   var pid: int = -1; // privatized object id (this should be factored out)
@@ -352,7 +407,7 @@ class LocBlockArr {
   const locDom: LocBlockDom(rank, idxType, stridable);
   var locRAD: LocRADCache(eltType, rank, idxType); // non-nil if doRADOpt=true
   var myElems: [locDom.myBlock] eltType;
-  var locRADLock: atomicflag; // This will only be accessed locally
+  var locRADLock: atomicbool; // This will only be accessed locally
                               // force the use of processor atomics
 
   // These function will always be called on this.locale, and so we do
@@ -376,17 +431,20 @@ proc Block.Block(boundingBox: domain,
                 dataParIgnoreRunningTasks=getDataParIgnoreRunningTasks(),
                 dataParMinGranularity=getDataParMinGranularity(),
                 param rank = boundingBox.rank,
-                type idxType = boundingBox.idxType) {
+                type idxType = boundingBox.idxType,
+                type sparseLayoutType = DefaultDist) {
   if rank != boundingBox.rank then
     compilerError("specified Block rank != rank of specified bounding box");
   if idxType != boundingBox.idxType then
     compilerError("specified Block index type != index type of specified bounding box");
+  if rank != 2 && sparseLayoutType == CSR then 
+    compilerError("CSR layout is only supported for 2 dimensional domains");
 
-  this.boundingBox = boundingBox;
+  this.boundingBox = boundingBox : domain(rank, idxType, stridable = false);
 
   setupTargetLocalesArray(targetLocDom, this.targetLocales, targetLocales);
 
-  const boundingBoxDims = boundingBox.dims();
+  const boundingBoxDims = this.boundingBox.dims();
   const targetLocDomDims = targetLocDom.dims();
   coforall locid in targetLocDom do
     on this.targetLocales(locid) do
@@ -446,7 +504,10 @@ proc Block.dsiEqualDMaps(that) param {
 proc Block.dsiClone() {
   return new Block(boundingBox, targetLocales,
                    dataParTasksPerLocale, dataParIgnoreRunningTasks,
-                   dataParMinGranularity);
+                   dataParMinGranularity,
+                   rank,
+                   idxType,
+                   sparseLayoutType);
 }
 
 proc Block.dsiDestroyDistClass() {
@@ -474,13 +535,20 @@ proc Block.dsiNewRectangularDom(param rank: int, type idxType,
   if rank != this.rank then
     compilerError("Block domain rank does not match distribution's");
 
-  var dom = new BlockDom(rank=rank, idxType=idxType, dist=this, stridable=stridable);
+  var dom = new BlockDom(rank=rank, idxType=idxType, dist=this,
+      stridable=stridable, sparseLayoutType=sparseLayoutType);
   dom.setup();
   if debugBlockDist {
     writeln("Creating new Block domain:");
     dom.dsiDisplayRepresentation();
   }
   return dom;
+}
+
+proc Block.dsiNewSparseDom(param rank: int, type idxType, dom: domain) {
+  return new SparseBlockDom(rank=rank, idxType=idxType,
+      sparseLayoutType=sparseLayoutType, dist=this, whole=dom._value.whole, 
+      parentDom=dom);
 }
 
 //
@@ -501,7 +569,7 @@ proc Block.dsiIndexToLocale(ind: idxType) where rank == 1 {
   return targetLocales(targetLocsIdx(ind));
 }
 
-proc Block.dsiIndexToLocale(ind: rank*idxType) where rank > 1 {
+proc Block.dsiIndexToLocale(ind: rank*idxType) {
   return targetLocales(targetLocsIdx(ind));
 }
 
@@ -668,6 +736,7 @@ proc LocBlock.LocBlock(param rank: int,
   }
 }
 
+
 proc BlockDom.dsiMyDist() return dist;
 
 proc BlockDom.dsiDisplayRepresentation() {
@@ -724,7 +793,7 @@ proc Block.dsiCreateRankChangeDist(param newRank: int, args) {
 
   for param i in 1..rank {
     if isCollapsedDimension(args(i)) {
-      // set indicies that are out of bounds to the bounding box low or high.
+      // set indices that are out of bounds to the bounding box low or high.
       collapsedBbox(i) = if args(i) < boundingBox.dim(i).low then boundingBox.dim(i).low else if args(i) > boundingBox.dim(i).high then boundingBox.dim(i).high else args(i);
       collapsedLocs(i) = collapsedLocInd(i);
     } else {
@@ -773,8 +842,13 @@ iter BlockDom.these(param tag: iterKind) where tag == iterKind.leader {
     type strType = chpl__signedType(idxType);
     const tmpBlock = locDom.myBlock.chpl__unTranslate(wholeLow);
     var locOffset: rank*idxType;
-    for param i in 1..tmpBlock.rank do
-      locOffset(i) = tmpBlock.dim(i).first/tmpBlock.dim(i).stride:strType;
+    for param i in 1..tmpBlock.rank {
+      const stride = tmpBlock.dim(i).stride;
+      if stride < 0 && strType != idxType then
+        halt("negative stride not supported with unsigned idxType");
+        // (since locOffset is unsigned in that case)
+      locOffset(i) = tmpBlock.dim(i).first / stride:idxType;
+    }
     // Forward to defaultRectangular
     for followThis in tmpBlock._value.these(iterKind.leader, maxTasks,
                                             myIgnoreRunning, minSize,
@@ -801,7 +875,7 @@ iter BlockDom.these(param tag: iterKind, followThis) where tag == iterKind.follo
              else rangeTuple(i).stridable || anyStridable(rangeTuple, i+1);
 
   if chpl__testParFlag then
-    chpl__testPar("Block domain follower invoked on ", followThis);
+    chpl__testParWriteln("Block domain follower invoked on ", followThis);
 
   var t: rank*range(idxType, stridable=stridable||anyStridable(followThis));
   type strType = chpl__signedType(idxType);
@@ -810,7 +884,7 @@ iter BlockDom.these(param tag: iterKind, followThis) where tag == iterKind.follo
     // not checking here whether the new low and high fit into idxType
     var low = (stride * followThis(i).low:strType):idxType;
     var high = (stride * followThis(i).high:strType):idxType;
-    t(i) = (low..high by stride:strType) + whole.dim(i).low by followThis(i).stride:strType;
+    t(i) = ((low..high by stride:strType) + whole.dim(i).low by followThis(i).stride:strType).safeCast(t(i).type);
   }
   for i in {(...t)} {
     yield i;
@@ -828,7 +902,8 @@ proc BlockDom.dsiSerialWrite(x) {
 // how to allocate a new array over this domain
 //
 proc BlockDom.dsiBuildArray(type eltType) {
-  var arr = new BlockArr(eltType=eltType, rank=rank, idxType=idxType, stridable=stridable, dom=this);
+  var arr = new BlockArr(eltType=eltType, rank=rank, idxType=idxType,
+      stridable=stridable, sparseLayoutType=sparseLayoutType, dom=this);
   arr.setup();
   return arr;
 }
@@ -837,6 +912,9 @@ proc BlockDom.dsiNumIndices return whole.numIndices;
 proc BlockDom.dsiLow return whole.low;
 proc BlockDom.dsiHigh return whole.high;
 proc BlockDom.dsiStride return whole.stride;
+proc BlockDom.dsiAlignedLow return whole.alignedLow;
+proc BlockDom.dsiAlignedHigh return whole.alignedHigh;
+proc BlockDom.dsiAlignment return whole.alignment;
 
 //
 // INTERFACE NOTES: Could we make dsiSetIndices() for a rectangular
@@ -917,7 +995,8 @@ proc BlockDom.dsiBuildRectangularDom(param rank: int, type idxType,
     compilerError("Block domain rank does not match distribution's");
 
   var dom = new BlockDom(rank=rank, idxType=idxType,
-                         dist=dist, stridable=stridable);
+                         dist=dist, stridable=stridable,
+                         sparseLayoutType=sparseLayoutType);
   dom.dsiSetIndices(ranges);
   return dom;
 }
@@ -1084,9 +1163,9 @@ iter BlockArr.these(param tag: iterKind, followThis, param fast: bool = false) r
 
   if chpl__testParFlag {
     if fast then
-      chpl__testPar("Block array fast follower invoked on ", followThis);
+      chpl__testParWriteln("Block array fast follower invoked on ", followThis);
     else
-      chpl__testPar("Block array non-fast follower invoked on ", followThis);
+      chpl__testParWriteln("Block array non-fast follower invoked on ", followThis);
   }
 
   if testFastFollowerOptimization then
@@ -1100,7 +1179,7 @@ iter BlockArr.these(param tag: iterKind, followThis, param fast: bool = false) r
     // NOTE: Not bothering to check to see if these can fit into idxType
     var low = followThis(i).low * abs(stride):idxType;
     var high = followThis(i).high * abs(stride):idxType;
-    myFollowThis(i) = (low..high by stride) + dom.whole.dim(i).low by followThis(i).stride;
+    myFollowThis(i) = ((low..high by stride) + dom.whole.dim(i).low by followThis(i).stride).safeCast(myFollowThis(i).type);
     lowIdx(i) = myFollowThis(i).low;
   }
 
@@ -1173,7 +1252,9 @@ proc BlockArr.dsiSerialWrite(f) {
 }
 
 proc BlockArr.dsiSlice(d: BlockDom) {
-  var alias = new BlockArr(eltType=eltType, rank=rank, idxType=idxType, stridable=d.stridable, dom=d);
+  // MPF: should this use sparseLayoutType = d.sparseLayoutType ?
+  var alias = new BlockArr(eltType=eltType, rank=rank, idxType=idxType,
+      stridable=d.stridable, dom=d, sparseLayoutType=DefaultDist);
   var thisid = this.locale.id;
   coforall i in d.dist.targetLocDom {
     on d.dist.targetLocales(i) {
@@ -1191,8 +1272,7 @@ proc BlockArr.dsiLocalSlice(ranges) {
   for param i in 1..rank {
     low(i) = ranges(i).low;
   }
-  var A => locArr(dom.dist.targetLocsIdx(low)).myElems((...ranges));
-  return A;
+  return locArr(dom.dist.targetLocsIdx(low)).myElems((...ranges));
 }
 
 proc _extendTuple(type t, idx: _tuple, args) {
@@ -1228,7 +1308,8 @@ proc _extendTuple(type t, idx, args) {
 
 
 proc BlockArr.dsiRankChange(d, param newRank: int, param stridable: bool, args) {
-  var alias = new BlockArr(eltType=eltType, rank=newRank, idxType=idxType, stridable=stridable, dom=d);
+  var alias = new BlockArr(eltType=eltType, rank=newRank, idxType=idxType,
+      stridable=stridable, dom=d, sparseLayoutType=DefaultDist);
   var thisid = this.locale.id;
   coforall ind in d.dist.targetLocDom {
     on d.dist.targetLocales(ind) {
@@ -1283,8 +1364,10 @@ proc BlockArr.dsiRankChange(d, param newRank: int, param stridable: bool, args) 
 }
 
 proc BlockArr.dsiReindex(d: BlockDom) {
+  // in constructor we have to pass sparseLayoutType as it has no default value
   var alias = new BlockArr(eltType=eltType, rank=d.rank, idxType=d.idxType,
-                           stridable=d.stridable, dom=d);
+                           stridable=d.stridable, dom=d,
+                           sparseLayoutType=DefaultDist);
   const sameDom = d==dom;
 
   var thisid = this.locale.id;
@@ -1358,7 +1441,8 @@ proc LocBlockArr.this(i) ref {
 //
 proc Block.Block(other: Block, privateData,
                 param rank = other.rank,
-                type idxType = other.idxType) {
+                type idxType = other.idxType,
+                type sparseLayoutType = other.sparseLayoutType) {
   boundingBox = {(...privateData(1))};
   targetLocDom = {(...privateData(2))};
   dataParTasksPerLocale = privateData(3);
@@ -1400,7 +1484,9 @@ proc BlockDom.dsiGetPrivatizeData() return (dist.pid, whole.dims());
 
 proc BlockDom.dsiPrivatize(privatizeData) {
   var privdist = chpl_getPrivatizedCopy(dist.type, privatizeData(1));
-  var c = new BlockDom(rank=rank, idxType=idxType, stridable=stridable, dist=privdist);
+  // in constructor we have to pass sparseLayoutType as it has no default value
+  var c = new BlockDom(rank=rank, idxType=idxType, stridable=stridable,
+      sparseLayoutType=privdist.sparseLayoutType, dist=privdist);
   for i in c.dist.targetLocDom do
     c.locDoms(i) = locDoms(i);
   c.whole = {(...privatizeData(2))};
@@ -1421,7 +1507,8 @@ proc BlockArr.dsiGetPrivatizeData() return dom.pid;
 
 proc BlockArr.dsiPrivatize(privatizeData) {
   var privdom = chpl_getPrivatizedCopy(dom.type, privatizeData);
-  var c = new BlockArr(eltType=eltType, rank=rank, idxType=idxType, stridable=stridable, dom=privdom);
+  var c = new BlockArr(eltType=eltType, rank=rank, idxType=idxType,
+      stridable=stridable, sparseLayoutType=sparseLayoutType, dom=privdom);
   for localeIdx in c.dom.dist.targetLocDom {
     c.locArr(localeIdx) = locArr(localeIdx);
     if c.locArr(localeIdx).locale.id == here.id then
@@ -1430,8 +1517,18 @@ proc BlockArr.dsiPrivatize(privatizeData) {
   return c;
 }
 
-proc BlockArr.dsiSupportsBulkTransfer() param return true;
-proc BlockArr.dsiSupportsBulkTransferInterface() param return true;
+proc BlockArr.dsiSupportsBulkTransfer() param {
+  if sparseLayoutType != DefaultDist then
+    return false;
+  else
+    return true;
+}
+proc BlockArr.dsiSupportsBulkTransferInterface() param {
+   if sparseLayoutType != DefaultDist then
+    return false;
+  else
+    return true;
+}
 
 proc BlockArr.doiCanBulkTransfer() {
   if debugBlockDistBulkTransfer then
@@ -1452,9 +1549,7 @@ proc BlockArr.doiCanBulkTransferStride() param {
   if debugBlockDistBulkTransfer then
     writeln("In BlockArr.doiCanBulkTransferStride");
 
-  // A BlockArr is a bunch of DefaultRectangular arrays,
-  // so strided bulk transfer gotta be always possible.
-  return true;
+  return useBulkTransferDist;
 }
 
 proc BlockArr.doiBulkTransfer(B) {
@@ -1546,14 +1641,33 @@ proc BlockArr.dsiTargetLocales() {
   return dom.dist.targetLocales;
 }
 
+proc BlockDom.dsiTargetLocales() {
+  return dist.targetLocales;
+}
+
+proc Block.dsiTargetLocales() {
+  return targetLocales;
+}
+
 // Block subdomains are continuous
 
 proc BlockArr.dsiHasSingleLocalSubdomain() param return true;
+proc BlockDom.dsiHasSingleLocalSubdomain() param return true;
 
 // returns the current locale's subdomain
 
 proc BlockArr.dsiLocalSubdomain() {
   return myLocArr.locDom.myBlock;
+}
+proc BlockDom.dsiLocalSubdomain() {
+  // TODO -- could be replaced by a privatized myLocDom in BlockDom
+  // as it is with BlockArr
+  var myLocDom:LocBlockDom(rank, idxType, stridable) = nil;
+  for (loc, locDom) in zip(dist.targetLocales, locDoms) {
+    if loc == here then
+      myLocDom = locDom;
+  }
+  return myLocDom.myBlock;
 }
 
 iter ConsecutiveChunks(d1,d2,lid,lo) {
@@ -1562,7 +1676,7 @@ iter ConsecutiveChunks(d1,d2,lid,lo) {
   var rlo=lo+offset;
   var rid  = d2.dist.targetLocsIdx(rlo);
   while (elemsToGet>0) {
-    const size = min(d2.numRemoteElems(rlo,rid),elemsToGet):int;
+    const size = min(d2.numRemoteElems(rlo,rid),elemsToGet);
     yield (rid,rlo,size);
     rid +=1;
     rlo += size;
@@ -1654,6 +1768,8 @@ proc BlockArr.doiBulkTransferTo(Barg)
 
 //For assignments of the form: "Block = any" 
 //where "any" means any array that implements the bulk transfer interface
+// TODO: avoid spawning so many coforall-ons
+//   - clean up some of this range creation logic
 proc BlockArr.doiBulkTransferFrom(Barg)
 {
   if debugBlockDistBulkTransfer then

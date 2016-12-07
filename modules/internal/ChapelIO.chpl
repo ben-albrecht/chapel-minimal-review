@@ -179,7 +179,6 @@ read in the output of the default ``write`` method.
 module ChapelIO {
   use ChapelBase; // for uint().
   use SysBasic;
-  // use IO; happens below once we need it.
   
   // TODO -- this should probably be private
   pragma "no doc"
@@ -189,50 +188,12 @@ module ChapelIO {
     return helper(val);
   }
  
-  pragma "no doc"
-  proc writerDeprecated() param {
-    compilerError("Writer deprecated: make writeThis argument generic");
-  }
-  pragma "no doc"
-  proc readerDeprecated() param {
-    compilerError("Reader deprecated: make readThis argument generic");
-  }
-
-  pragma "no doc"
-  class Writer {
-    param dummy = writerDeprecated();
-  }
-  pragma "no doc"
-  class Reader {
-    param dummy = readerDeprecated();
-  }
-
-  // This routine is called in DefaultRectangular in order
-  // to report an out of bounds access for a halt. A normal
-  // call to halt with a tuple can't be made because of module
-  // order issues.
-  pragma "no doc"
-  proc _stringify_index(tup:?t) where isTuple(t)
-  {
-    var str = "(";
-
-    for param i in 1..tup.size {
-      if i != 1 then str += ", ";
-      str += tup[i]:string;
-    }
-
-   str += ")";
-
-    return str;
-
-  }
-
   use IO;
 
     private
     proc isIoField(x, param i) param {
-      if isType(__primitive("field value by num", x, i)) ||
-         isParam(__primitive("field value by num", x, i)) {
+      if isType(__primitive("field by num", x, i)) ||
+         isParam(__primitive("field by num", x, i)) {
         // I/O should ignore type or param fields
         return false;
       } else {
@@ -294,7 +255,7 @@ module ChapelIO {
               writer.readwrite(eq);
             }
 
-            writer.readwrite(__primitive("field value by num", x, i));
+            writer.readwrite(__primitive("field by num", x, i));
   
             first = false;
           }
@@ -312,7 +273,7 @@ module ChapelIO {
               var eq:ioLiteral = ioFieldNameEqLiteral(writer, t, i);
               writer.readwrite(eq);
             }
-            writer.readwrite(__primitive("field value by num", x, i));
+            writer.readwrite(__primitive("field by num", x, i));
           }
         }
       }
@@ -432,7 +393,7 @@ module ChapelIO {
         if isBinary {
           for param i in 1..num_fields {
             if isIoField(x, i) {
-              reader.readwrite(__primitive("field value by num", x, i));
+              reader.readwrite(__primitive("field by num", x, i));
             }
           }
         } else if num_fields > 0 {
@@ -502,7 +463,7 @@ module ChapelIO {
                     }
                     reader.readwrite(eq);
 
-                    reader.readwrite(__primitive("field value by num", x, i));
+                    reader.readwrite(__primitive("field by num", x, i));
                     if !reader.error() {
                       read_field[i] = true;
                       num_read += 1;
@@ -547,7 +508,7 @@ module ChapelIO {
           reader.readwrite(id);
           for param i in 1..num_fields {
             if isIoField(x, i) && i == id {
-              reader.readwrite(__primitive("field value by num", x, i));
+              reader.readwrite(__primitive("field by num", x, i));
             }
           }
         } else {
@@ -577,7 +538,7 @@ module ChapelIO {
                 readIt(eq);
 
                 // We read the 'name = ', so now read the value!
-                reader.readwrite(__primitive("field value by num", x, i));
+                reader.readwrite(__primitive("field by num", x, i));
               }
             }
           }
@@ -688,11 +649,6 @@ module ChapelIO {
   proc halt(s:string) {
     halt(s.localize().c_str());
   }
-
-  pragma "no doc"
-  proc halt(s:c_string) {
-    __primitive("chpl_error", c"halt reached - " + s);
-  }
  
   /*
      Prints an error message to stderr giving the location of the call to
@@ -709,12 +665,7 @@ module ChapelIO {
     in the Chapel source, followed by the argument(s) to the call.
   */
   proc warning(s:string) {
-    warning(s.localize().c_str());
-  }
-
-  pragma "no doc"
-  proc warning(s:c_string) {
-    __primitive("chpl_warning", s);
+    __primitive("chpl_warning", s.localize().c_str());
   }
  
   /*
@@ -722,10 +673,8 @@ module ChapelIO {
     in the Chapel source, followed by the argument(s) to the call.
   */
   proc warning(args ...?numArgs) {
-    var tmpstring: c_string_copy;
-    tmpstring.write((...args));
+    var tmpstring = stringify((...args));
     warning(tmpstring);
-    chpl_free_c_string_copy(tmpstring);
   }
   
   pragma "no doc"
@@ -753,7 +702,7 @@ module ChapelIO {
   // Convert 'x' to a string just the way it would be written out.
   //
   // This is marked as compiler generated so it doesn't take precedence over
-  // genereated casts for types like enums
+  // generated casts for types like enums
   //
   // This version only applies to non-primitive types
   // (primitive types should support :string directly)
@@ -762,41 +711,4 @@ module ChapelIO {
   proc _cast(type t, x) where t == string && ! isPrimitiveType(x.type) {
     return stringify(x);
   }
-
-  pragma "no doc"
-  proc ref string.write(args ...?n) {
-    compilerError("string.write deprecated: use string.format or stringify");
-  }
-
-  //
-  // When this flag is used during compilation, calls to chpl__testPar
-  // will output a message to indicate that a portion of the code has been
-  // parallelized.
-  //
-  pragma "no doc"
-  config param chpl__testParFlag = false;
-  pragma "no doc"
-  var chpl__testParOn = false;
-  
-  pragma "no doc"
-  proc chpl__testParStart() {
-    chpl__testParOn = true;
-  }
-  
-  pragma "no doc"
-  proc chpl__testParStop() {
-    chpl__testParOn = false;
-  }
-  
-  pragma "no doc"
-  proc chpl__testPar(args...) {
-    if chpl__testParFlag && chpl__testParOn {
-      const file_cs : c_string = __primitive("chpl_lookupFilename",
-                                        __primitive("_get_user_file"));
-      const file = file_cs:string;
-      const line = __primitive("_get_user_line");
-      writeln("CHPL TEST PAR (", file, ":", line, "): ", (...args));
-    }
-  }
-
 }
